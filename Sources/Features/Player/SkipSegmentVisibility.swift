@@ -113,3 +113,61 @@ enum PlayerPauseCardPolicy {
             && !state.panelOpen && !state.promptOpen
     }
 }
+
+/// What a film's end credits are actually offering to skip.
+///
+/// IntroDB marks a film's credits and, separately, any scene after them. Two things follow, and
+/// neither is served by treating the scene as an ordinary segment: the scene must never be a card
+/// of its own — "skip the post-credits scene" is not an offer anyone wants — and the credits card
+/// has to say where it lands, because "Skip credits" on a film with a stinger reads like a
+/// promise to skip the stinger too.
+///
+/// Port of `followingPostCreditsScene`, **narrowed to films**. Upstream extended it to series
+/// outros three days before this was written, using a five-second tail as the only evidence. For
+/// a film that tail means something — films do not pad. For an episode it is the norm: black
+/// frames, a studio card, a next-episode preview. Their series path cannot produce an explicit
+/// `post_credits` mark either, so on series the change is the heuristic and nothing else, and it
+/// would relabel almost every ending as leading to a scene that is not there.
+enum PostCreditsScene {
+    /// `POST_OUTRO_AUTOPLAY_GAP_MS`. Credits that stop this far short of the end are hiding
+    /// something — usually an unsubmitted stinger.
+    static let unexplainedTail: Double = 5
+
+    /// The scene a credits segment leads into, marked or inferred, if there is one.
+    static func following(
+        _ segment: SkipSegment,
+        in segments: [SkipSegment],
+        durationSeconds: Double
+    ) -> SkipSegment? {
+        guard segment.kind == .movieCredits else { return nil }
+
+        let marked = segments
+            .filter {
+                $0.kind == .postCredits && $0.start.isFinite && $0.end.isFinite
+                    && $0.end > $0.start && $0.start >= segment.end
+                    // A different release can end before the submitted scene does; its start is
+                    // still playable, so only the start is checked against this runtime.
+                    && (durationSeconds <= 0 || $0.start < durationSeconds)
+            }
+            .min { $0.start < $1.start }
+        if let marked { return marked }
+
+        guard durationSeconds > 0, durationSeconds - segment.end > unexplainedTail else { return nil }
+        return SkipSegment(kind: .postCredits, start: segment.end, end: durationSeconds)
+    }
+
+    /// Where pressing the card should land, or `nil` if this segment is not one to skip at all.
+    static func skipTarget(
+        for segment: SkipSegment,
+        in segments: [SkipSegment],
+        durationSeconds: Double
+    ) -> Double? {
+        guard segment.kind != .postCredits else { return nil }
+        return following(segment, in: segments, durationSeconds: durationSeconds)?.start ?? segment.end
+    }
+
+    /// Whether a card may be drawn for this segment. The scene itself never earns one.
+    static func offersCard(_ segment: SkipSegment) -> Bool {
+        segment.kind != .postCredits
+    }
+}

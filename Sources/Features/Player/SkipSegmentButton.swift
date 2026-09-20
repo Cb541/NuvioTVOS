@@ -12,6 +12,9 @@ struct SkipSegmentButton: View {
     @Environment(\.nuvioColors) private var colors
 
     let segment: SkipSegment
+    /// The card lands on a scene after the credits rather than on the end of the film, so it
+    /// has to say so: "Skip credits" on a film with a stinger reads like a promise to skip it.
+    var targetsPostCredits: Bool = false
     /// Whether the card should take the remote. False while the transport is up: the viewer is
     /// already steering with it. See `SkipSegmentVisibility.claimsFocus`.
     var claimsFocus: Bool = true
@@ -33,11 +36,16 @@ struct SkipSegmentButton: View {
     @State private var countdown: CGFloat = 0
 
     private var label: String {
+        if targetsPostCredits {
+            return L10n.text("player.skip_to_post_credits", fallback: "Skip to post-credits")
+        }
         switch segment.kind {
         case .intro: return L10n.text("player.skip_intro", fallback: "Skip intro")
         case .outro: return L10n.text("player.skip_outro", fallback: "Skip outro")
         case .recap: return L10n.text("player.skip_recap", fallback: "Skip recap")
-        case .mixed: return L10n.text("player.skip_segment", fallback: "Skip segment")
+        case .movieCredits: return L10n.text("player.skip_credits", fallback: "Skip credits")
+        // The scene never gets a card of its own; see `PostCreditsScene.offersCard`.
+        case .postCredits, .mixed: return L10n.text("player.skip_segment", fallback: "Skip segment")
         }
     }
 

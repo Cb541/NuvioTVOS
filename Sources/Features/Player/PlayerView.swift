@@ -443,9 +443,18 @@ struct PlayerView: View {
     private var activeSkipSegment: SkipSegment? {
         guard settings.player.skipIntroEnabled else { return nil }
         return skipSegments.first { segment in
-            playbackPosition >= segment.start && playbackPosition < segment.end
+            PostCreditsScene.offersCard(segment)
+                && playbackPosition >= segment.start && playbackPosition < segment.end
                 && !dismissedSkipSegments.contains(segment.id)
         }
+    }
+
+    /// Whether the active card lands on a scene rather than on the end of the film.
+    private var skipTargetsPostCredits: Bool {
+        guard let segment = activeSkipSegment else { return false }
+        return PostCreditsScene.following(
+            segment, in: skipSegments, durationSeconds: playbackDuration
+        ) != nil
     }
 
     private var skipVisibility: SkipSegmentVisibility.State {
@@ -485,6 +494,7 @@ struct PlayerView: View {
         if let segment = visibleSkipSegment {
             SkipSegmentButton(
                 segment: segment,
+                targetsPostCredits: skipTargetsPostCredits,
                 claimsFocus: skipCardClaimsFocus,
                 showsCountdown: SkipSegmentVisibility.runsAutoHideCountdown(skipVisibility),
                 action: { skip(segment) },
@@ -671,11 +681,11 @@ struct PlayerView: View {
     }
 
     private func loadSkipSegmentsIfNeeded(duration: Double) {
-        guard settings.player.skipIntroEnabled,
-              request.episode != nil,
-              duration > 0,
-              skipLookupKey == nil
-        else { return }
+        guard settings.player.skipIntroEnabled, duration > 0, skipLookupKey == nil else { return }
+        guard request.episode != nil else {
+            loadMovieSkipSegmentsIfNeeded()
+            return
+        }
 
         let ids = [request.videoId, request.contentId, request.imdbId ?? ""]
         let directMAL = ids.lazy.compactMap(Self.malEpisode(from:)).first
@@ -784,6 +794,28 @@ struct PlayerView: View {
         }
     }
 
+    /// A film's marks come from IntroDB alone: the anime providers are keyed by episode and
+    /// have nothing to say about one. Only the credits and any scene after them are on offer,
+    /// which is also what the post-play card reads to decide when the film is actually over.
+    private func loadMovieSkipSegmentsIfNeeded() {
+        let ids = [request.videoId, request.contentId, request.imdbId ?? ""]
+        guard let imdbId = ids.lazy.first(where: { $0.hasPrefix("tt") })
+            .map({ String($0.split(separator: ":")[0]) })
+        else { return }
+
+        let key = "movie:\(imdbId)"
+        skipLookupKey = key
+        let introDbUrl = settings.skipIntro.introDbApiUrl
+
+        Task {
+            let segments = await SkipIntroClient.shared.introDbMovieSegments(
+                baseURL: introDbUrl, imdbId: imdbId
+            )
+            guard skipLookupKey == key else { return }
+            skipSegments = segments
+        }
+    }
+
     /// Anime-Skip is keyed by AniList id, per season. Upstream tries the season's own id first
     /// with no season filter, then falls back to the first season's id *with* one — a show whose
     /// seasons are separate AniList entries and one whose seasons live under a single entry are
@@ -817,8 +849,11 @@ struct PlayerView: View {
     }
 
     private func skip(_ segment: SkipSegment) {
+        guard let target = PostCreditsScene.skipTarget(
+            for: segment, in: skipSegments, durationSeconds: playbackDuration
+        ) else { return }
         dismissedSkipSegments.insert(segment.id)
-        requestedSeek = segment.end
+        requestedSeek = target
     }
 
     /// Android's in-player Episodes panel opens the stream picker for the selected episode.
@@ -958,9 +993,23 @@ struct PlayerView: View {
 
         let threshold = settings.player.postPlayMovieThresholdPercent
         let progress = position / duration
+        // IntroDB's credits mark, when this film has one, is a far better answer than the
+        // percentage — see `triggerPositionSeconds`. It arrives asynchronously, so both the
+        // prefetch and the card re-read it on every tick rather than caching a position.
+        let tailWindow = PostPlayRecommendation.tailWindowSeconds(
+            mode: settings.player.nextEpisodeThresholdMode,
+            percent: settings.player.nextEpisodeThresholdPercent,
+            minutesBeforeEnd: settings.player.nextEpisodeThresholdMinutesBeforeEnd,
+            durationSeconds: duration
+        )
 
         if !fetchedRecommendations,
-           progress >= PostPlayRecommendation.prefetchProgress(thresholdPercent: threshold) {
+           progress >= PostPlayRecommendation.prefetchProgress(
+            thresholdPercent: threshold,
+            durationSeconds: duration,
+            segments: skipSegments,
+            tailWindowSeconds: tailWindow
+           ) {
             fetchedRecommendations = true
             Task { await loadRecommendations() }
         }
@@ -970,7 +1019,9 @@ struct PlayerView: View {
                 contentType: .movie,
                 positionSeconds: position,
                 durationSeconds: duration,
-                thresholdPercent: threshold
+                thresholdPercent: threshold,
+                segments: skipSegments,
+                tailWindowSeconds: tailWindow
               )
         else { return }
         showsRecommendations = true

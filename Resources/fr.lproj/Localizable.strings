@@ -205,6 +205,8 @@
 /* Player overlays, tracker libraries, cast and list picker */
 "player.skip_intro" = "Passer l’intro";
 "player.skip_outro" = "Passer le générique";
+"player.skip_credits" = "Passer le générique";
+"player.skip_to_post_credits" = "Aller à la scène post-générique";
 "player.skip_recap" = "Passer le résumé";
 "player.skip_segment" = "Passer ce segment";
 "player.episodes_series_only" = "Le choix d’épisode n’existe que pour les séries.";
@@ -563,6 +565,8 @@
 "settings.integrations.skip_recaps_auto_sub" = "Sauter le « précédemment »";
 "settings.integrations.skip_outros_auto" = "Passer les génériques automatiquement";
 "settings.integrations.skip_outros_auto_sub" = "Saute à la fin de l’épisode dès le début du générique";
+"settings.integrations.skip_credits_auto" = "Passer le générique de fin automatiquement";
+"settings.integrations.skip_credits_auto_sub" = "Films uniquement, et une scène post-générique est toujours conservée";
 "settings.integrations.source_list" = "Liste des sources";
 "settings.integrations.badge_placement" = "Emplacement des badges";
 "settings.integrations.addon_logos" = "Logos des extensions";

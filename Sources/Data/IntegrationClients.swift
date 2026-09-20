@@ -1355,7 +1355,11 @@ actor TraktClient {
 // MARK: - Skip intro (AniSkip / Anime-Skip)
 
 struct SkipSegment: Hashable, Sendable {
-    enum Kind: String, Sendable { case intro, outro, recap, mixed }
+    /// `movieCredits` and `postCredits` only ever come from IntroDB's film route. They are
+    /// separate kinds rather than a reuse of `outro` because they mean different things to the
+    /// viewer — and because the merge below keeps one segment per kind, so folding a film's
+    /// credits into `outro` would have them compete with a series' ending.
+    enum Kind: String, Sendable { case intro, outro, recap, mixed, movieCredits, postCredits }
     var kind: Kind
     var start: Double
     var end: Double
@@ -1519,6 +1523,77 @@ actor SkipIntroClient {
         }
         cache[key] = segments
         return segments
+    }
+
+    /// The same route with `is_movie=true`, which IntroDB answers with the film's end credits in
+    /// `outro` and any scene after them in `post_credits`.
+    ///
+    /// A film has no season or episode, so the series call above could never be made for one —
+    /// which is why films had no marks at all, and why the post-play card had nothing better
+    /// than a percentage to fire on.
+    func introDbMovieSegments(baseURL: String, imdbId: String) async -> [SkipSegment] {
+        let key = "introdb-movie-\(imdbId)"
+        if let hit = cache[key] { return hit }
+
+        struct Segment: Decodable {
+            let start_sec: Double?
+            let end_sec: Double?
+            let start_ms: Double?
+            let end_ms: Double?
+
+            var range: (start: Double, end: Double)? {
+                guard let start = start_sec ?? start_ms.map({ $0 / 1000 }),
+                      let end = end_sec ?? end_ms.map({ $0 / 1000 }),
+                      end > start else { return nil }
+                return (start, end)
+            }
+        }
+        struct Response: Decodable {
+            let outro: Segment?
+            let post_credits: Segment?
+        }
+
+        let override = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let base = override.isEmpty ? Self.introDbDefaultBaseURL : override
+        guard let encoded = imdbId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        else { return [] }
+
+        let url = "\(base)/segments?imdb_id=\(encoded)&is_movie=true"
+        guard let response = try? await IntegrationHTTP.get(url, as: Response.self) else { return [] }
+
+        let segments = Self.movieSegments(
+            credits: response.outro?.range,
+            scene: response.post_credits?.range
+        )
+        cache[key] = segments
+        return segments
+    }
+
+    /// Clips the credits so skipping them cannot also skip the scene that follows.
+    ///
+    /// IntroDB's two segments are submitted independently and routinely overlap — a submitter
+    /// marks the credits as running to the end of the file, then someone else marks the scene
+    /// inside them. Taken literally, pressing *Skip credits* would jump past the very thing the
+    /// separate `post_credits` mark exists to protect.
+    nonisolated static func movieSegments(
+        credits: (start: Double, end: Double)?,
+        scene: (start: Double, end: Double)?
+    ) -> [SkipSegment] {
+        var result: [SkipSegment] = []
+        if let credits {
+            var end = credits.end
+            if let scene, scene.start < credits.end, scene.end > credits.start {
+                end = scene.start
+            }
+            if end > credits.start {
+                result.append(SkipSegment(kind: .movieCredits, start: credits.start, end: end))
+            }
+        }
+        if let scene {
+            result.append(SkipSegment(kind: .postCredits, start: scene.start, end: scene.end))
+        }
+        return result
     }
 
     // MARK: Anime-Skip

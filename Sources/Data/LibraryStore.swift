@@ -59,12 +59,25 @@ final class LibraryStore {
     /// Library rows removed on this device but not yet deleted on the account. Without these a
     /// removal would simply be re-adopted from the remote snapshot on the next sync.
     private(set) var pendingLibraryDeletions: [String] = []
+    /// The same, for watch progress, keyed by video id — which is what the account's delete RPC
+    /// takes. Progress rows are removed by two viewer actions, not one: taking a title out of
+    /// Continue Watching, and marking something unwatched. Both wrote only locally, so the next
+    /// sync pulled the row back and silently undid them.
+    private(set) var pendingProgressDeletions: [String] = []
 
     private let progressFile = JSONFileStore<[String: WatchProgress]>(filename: "watch-progress.json")
     private let libraryFile = JSONFileStore<[SavedLibraryItem]>(filename: "library.json")
     private let previewFile = JSONFileStore<[String: MetaPreview]>(filename: "preview-cache.json")
     private let thumbnailFile = JSONFileStore<[String: String]>(filename: "episode-thumbnails.json")
     private let deletionFile = JSONFileStore<[String]>(filename: "library-deletions.json")
+    /// Durable, unlike its sibling above: a purged deletion queue silently resurrects the rows
+    /// it was holding, which is the bug this queue exists to prevent. `library-deletions.json`
+    /// has the same weakness, but flipping it now would strand any queue already written to the
+    /// purgeable location — the legacy migration only reads the pre-split path — so that one
+    /// wants its own change with a migration read, not a drive-by here.
+    private let progressDeletionFile = JSONFileStore<[String]>(
+        filename: "progress-deletions.json", durability: .critical
+    )
     private let episodeFile = JSONFileStore<[String: [SeriesEpisodeRef]]>(filename: "series-episodes.json")
 
     /// Episode lists per series, so Next Up can name the episode that follows one just
@@ -78,6 +91,7 @@ final class LibraryStore {
         episodeThumbnails = thumbnailFile.load() ?? [:]
         seriesEpisodes = episodeFile.load() ?? [:]
         pendingLibraryDeletions = deletionFile.load() ?? []
+        pendingProgressDeletions = progressDeletionFile.load() ?? []
         refreshTopShelf()
     }
 
@@ -107,16 +121,21 @@ final class LibraryStore {
             updatedAt: Date()
         )
         if let preview { previewCache["\(contentType)|\(contentId)"] = preview }
+        cancelProgressDeletion(videoId)
         persistProgress()
     }
 
     func clearProgress(videoId: String) {
-        progress.removeValue(forKey: videoId)
+        guard progress.removeValue(forKey: videoId) != nil else { return }
+        recordProgressDeletion([videoId])
         persistProgress()
     }
 
     func clearProgress(contentId: String) {
+        let removed = progress.values.filter { $0.contentId == contentId }.map(\.videoId)
+        guard !removed.isEmpty else { return }
         progress = progress.filter { $0.value.contentId != contentId }
+        recordProgressDeletion(removed)
         persistProgress()
     }
 
@@ -127,6 +146,7 @@ final class LibraryStore {
             positionSeconds: max(duration, 1), durationSeconds: max(duration, 1),
             updatedAt: Date()
         )
+        cancelProgressDeletion(videoId)
         persistProgress()
     }
 
@@ -350,6 +370,9 @@ final class LibraryStore {
     /// Applies a row that arrived from the account. Distinct from `record`/`toggleLibrary` so a
     /// pulled row cannot be mistaken for a local action and pushed straight back.
     func adoptProgress(_ incoming: WatchProgress) {
+        // A row this device removed must not come back before the deletion has been pushed —
+        // the same rule the saved library already follows below, and for the same reason.
+        guard !pendingProgressDeletions.contains(incoming.videoId) else { return }
         progress[incoming.videoId] = incoming
         persistProgress()
     }
@@ -395,6 +418,27 @@ final class LibraryStore {
         guard pendingLibraryDeletions.contains(rowKey) else { return }
         pendingLibraryDeletions.removeAll { $0 == rowKey }
         deletionFile.save(pendingLibraryDeletions)
+    }
+
+    private func recordProgressDeletion(_ videoIds: [String]) {
+        let fresh = videoIds.filter { !pendingProgressDeletions.contains($0) }
+        guard !fresh.isEmpty else { return }
+        pendingProgressDeletions.append(contentsOf: fresh)
+        progressDeletionFile.save(pendingProgressDeletions)
+    }
+
+    /// Called once the account has accepted the deletes.
+    func clearPendingProgressDeletions(_ keys: [String]) {
+        pendingProgressDeletions.removeAll { keys.contains($0) }
+        progressDeletionFile.save(pendingProgressDeletions)
+    }
+
+    /// Watching something again — or marking it watched — outranks a removal that has not been
+    /// pushed yet. Without this the row would be written locally and then deleted on the account.
+    private func cancelProgressDeletion(_ videoId: String) {
+        guard pendingProgressDeletions.contains(videoId) else { return }
+        pendingProgressDeletions.removeAll { $0 == videoId }
+        progressDeletionFile.save(pendingProgressDeletions)
     }
 
     // MARK: Persistence

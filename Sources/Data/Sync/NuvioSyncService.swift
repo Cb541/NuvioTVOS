@@ -207,6 +207,16 @@ final class NuvioSyncService {
     // MARK: Watch progress
 
     private func syncWatchProgress(library: LibraryStore, profileId: Int) async throws {
+        // Deletions go first, for the reason spelled out above `syncLibrary`: the pull below
+        // would otherwise hand back rows this device removed. Two viewer actions produce them —
+        // removing a title from Continue Watching, and marking something unwatched — and until
+        // this existed the next sync quietly reversed both.
+        let pendingDeletions = library.pendingProgressDeletions
+        if !pendingDeletions.isEmpty {
+            try await pushWatchProgressDeletions(keys: pendingDeletions, profileId: profileId)
+            library.clearPendingProgressDeletions(pendingDeletions)
+        }
+
         let remote = try await NuvioBackend.shared.rpc(
             "sync_pull_watch_progress",
             parameters: ["p_profile_id": .int(profileId), "p_limit": .int(2000)],
@@ -257,6 +267,20 @@ final class NuvioSyncService {
             parameters["p_entries"] = .array(payload)
             parameters["p_profile_id"] = .int(profileId)
             try await NuvioBackend.shared.rpcVoid("sync_push_watch_progress", parameters: parameters)
+        }
+    }
+
+    private func pushWatchProgressDeletions(keys: [String], profileId: Int) async throws {
+        // `p_keys` is a flat array of progress keys, which is what `progressKey` returns.
+        let payload = keys
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !payload.isEmpty else { return }
+        for chunk in payload.chunked(into: 200) {
+            var parameters = originParameters
+            parameters["p_keys"] = .array(chunk.map { .string($0) })
+            parameters["p_profile_id"] = .int(profileId)
+            try await NuvioBackend.shared.rpcVoid("sync_delete_watch_progress", parameters: parameters)
         }
     }
 

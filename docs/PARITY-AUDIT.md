@@ -1,17 +1,21 @@
-# Functional parity audit — tvOS 1.0.31 vs Android TV 0.8.9-beta
+# Functional parity audit — tvOS 1.0.36 vs Android TV 1.0.0
 
-Audit date: 2026-08-25, re-derived against 1.0.31 on 2026-08-26. Supersedes the audit
-published with 1.0.15. Fifteen releases landed while it was open, so the table below is
-the live record and the lists that follow are kept in step with it.
+Audit date: 2026-08-25, re-derived against 1.0.31 on 2026-08-26, tracked forward since.
+Supersedes the audit published with 1.0.15. Twenty releases landed while it was open, so the
+table below is the live record and the lists that follow are kept in step with it.
 
 ## Scope and evidence
 
 Baseline revisions, exact:
 
-- tvOS `v1.0.31` — commit `19aef3d`, the current `main`;
-- Android TV `0.8.9-beta` — commit `f40c422ee`, tagged 2026-08-25.
+- tvOS `v1.0.31` — commit `19aef3d`, where the table below was derived;
+- Android TV `0.8.9-beta` — commit `f40c422ee`, tagged 2026-08-25, the same;
+- Android TV `1.0.0` — commit `9f17e8bf4`, tagged 2026-09-19, the current upstream release and
+  its first non-beta tag.
 
-`0.8.9-beta` is the newest upstream release; `origin/dev` carries 43 further commits.
+Upstream has since tagged `0.8.10-beta` through `1.0.0`; each window is triaged in its own
+section below rather than folded into the table, so what was measured against which tree stays
+readable.
 
 ### The previous audit measured the wrong tree
 
@@ -48,7 +52,7 @@ platform refuses the upstream approach.
 |---|---|---|
 | First run | Parity | Three Android screens are one three-step tvOS flow. |
 | Profiles | Parity | Avatars, launch selection, create/edit/delete, PIN, restricted profiles. |
-| Nuvio account and sync | Adapted | QR sign-in, device codes, linked devices, per-profile sync. |
+| Nuvio account and sync | Adapted | QR sign-in, device codes, linked devices, per-profile sync. Library and — since 1.0.36 — watch-progress deletions are pushed before each pull; upstream replays a mutation log instead, which is a different shape for the same guarantee. |
 | Main navigation | Adapted | Same destinations; sidebar focus behaviour is tvOS-native. |
 | Home layouts and hero ✻ | Partial | Classic/Grid/Modern, hero, catalog order, collections, focus-hold expansion, the classic focus gradient, and since 1.0.19 the Continue Watching toggle and the rating-visibility control. No inline focused trailers. |
 | Poster options dialog | Parity | Since 1.0.18 a long press on any poster offers library add/remove, watched/unwatched, removal from Continue Watching and the detail screen. Since 1.0.25 the watched row covers series too, walking every aired episode — specials and unaired excluded — with one remote call rather than one per episode. Since 1.0.30 the viewer's own Trakt lists are managed from it, and removing a title from Simkl asks first — that removal calls `sync/history/remove`, so it erases every episode marked watched there. Trakt's removal touches only the watchlist and is not warned about, which is narrower than upstream's generic warning and checked against our own writes. **None of it was reachable until 1.0.32** — see below. |
@@ -57,7 +61,7 @@ platform refuses the upstream approach.
 | Discover | Parity for addon catalogs | Tail pagination, de-duplication, cancellation. |
 | Detail and metadata ✻ | Partial | Metadata, cast, companies, trailers, More like this, comments, parental guidance, and since 1.0.19 `videos[].rating` from addon metadata plus the rating-visibility rules including hide-until-watched. Since 1.0.27 the TMDB franchise-collection row and since 1.0.29 the episode-options overlay — which was the only route to marking a single episode watched without playing it, and there was none. Missing: the ratings tab's IMDb scores. |
 | Collections | Parity | Data shape, live folder sources, ordering, sync. `focusGifUrl`/`heroVideoUrl` retained but not rendered. |
-| Local library/progress ✻ | Parity | Save/remove, Continue Watching, watched threshold, per-profile persistence, account sync, removal from Continue Watching (1.0.18) and a sort control (1.0.19). |
+| Local library/progress ✻ | Parity | Save/remove, Continue Watching, watched threshold, per-profile persistence, account sync, removal from Continue Watching (1.0.18) and a sort control (1.0.19). **Until 1.0.36 neither a removal nor an un-marking survived an account sync** — see the 1.0.0 triage below. |
 | Trakt | Parity | OAuth, progress, list reads, comments, related titles, scrobbling, `sync/watchlist` and `sync/history` writes. Upstream has no `sync/collection`; neither do we. |
 | Simkl | Parity | Five list states, remote resume points, scrobbling, `add-to-list`/`history` writes, the anime identity model since 1.0.22, and playback-session deletion since 1.0.26. Snapshot reconciliation does not apply here; see *Differences assumed*. |
 | Next Up from trackers ✻ | Partial | Since 1.0.21 a series whose last episode was finished is offered its next one, with the airing rules, both anchor modes and per-series dismissal. Previously the rail held only half-watched episodes, so finishing one removed the series from Home entirely. Since 1.0.25 the episode list is seeded from Continue Watching rather than waiting on a detail-screen visit, bounded to the front of the rail. Since 1.0.29 sibling ids are reconciled where rows are emitted: two addons keying one show differently produced two rows in the rail, each offering a different next episode. Bridged on the IMDb id, which the metadata carries even when the addon's own id is in another namespace. |
@@ -69,7 +73,7 @@ platform refuses the upstream approach.
 | Direct torrent playback ✻ | **Forced** | Upstream ships TorrServer as `libtorrserver.so` and starts it with `ProcessBuilder`. tvOS allows neither subprocesses nor downloaded executables, so the upstream design cannot be ported at all. A linked-in engine is a different project, not a port. |
 | Parallel chunked streaming | Missing, and declined | A 1,352-line range downloader: 2–4 HTTP connections each fetching a different byte range, to get past a per-connection throughput ceiling. Its prefetch window, its two pinned side chunks and its 429 backoff all exist to make the parallelism behave — the feature buys throughput and nothing else. Upstream ships it **off by default** with a speed tester to justify enabling it. Not worth 1,352 lines without a measurement showing a real per-connection ceiling; see P2. |
 | Plugin runtime | Partial | Repository/install/settings, HTML/CSS helpers, fetch, `getStreams`. CryptoJS covers common hashes/HMAC, PBKDF2 and AES, not the legacy DES family. |
-| Player transport | Parity | In-place sources, episodes, tracks, subtitle appearance/delay, audio delay, speed, seven display modes, stream info, skip cards, post-play, still-watching, external hand-off — and, since 1.0.17, the hidden-controls seek readout. |
+| Player transport | Parity | In-place sources, episodes, tracks, subtitle appearance/delay, audio delay, speed, seven display modes, stream info, skip cards, post-play, still-watching, external hand-off — and, since 1.0.17, the hidden-controls seek readout. Since 1.0.36 a film's end credits carry a skip card of their own, from IntroDB's film route, and a marked post-credits scene is never skipped past. |
 | Player failure recovery | Parity at state-machine level | Decoded-first-frame detection, one bounded retry, AVFoundation→mpv fallback, live-playhead resume. |
 | Player audio controls | Parity, less two the platform refuses | Output channels, in-player amplification and — since 1.0.24 — persisted amplification, centre-mix level and downmix normalisation. Keep-original-on-downmix and forced optical passthrough cannot exist here as *controls*; see *Forced*, where the second entry also corrects an over-broad claim about passthrough in general. |
 | Dolby Vision profile 7 ✻ | **Adapted (in our favour)** | Upstream carries a forked Matroska extractor, a libdovi bridge, an RPU stripper and DV5→DV8.1 conversion — ~13 files — because ExoPlayer cannot play dual-layer DV. libmpv with the vendored `Libdovi`/`Libplacebo` handles it in-engine. Their five DV settings have no counterpart because they have no problem to solve here. **Unverified on hardware.** |
@@ -235,6 +239,63 @@ upstream adds a key for anything a viewer can see.
 | Simkl for anime id resolution in skip-intro, replacing ARM | **Ported in 1.0.35**, and it was a real defect here too. ARM returns one MAL id per season as a flat array indexed by season number; anime and TVDB numbering disagree on most long shows, so the index lands on the wrong title *and* the wrong episode. Upstream removed ARM; ours keeps it as a fallback, because the Simkl client id is the viewer's here rather than shipped. |
 | HLS segment 404 fallback; mpv stuck on last frame | Player robustness, both plausibly ours too. Neither reproduced here yet, so neither is claimed fixed. |
 | Player strings read from the app language, not the system one | **Closed in 1.0.35** with the picker itself. `L10n` resolves against a chosen bundle rather than `Bundle.main`, so there is one app language and the player reads it like everything else. |
+
+## Upstream moved again: 0.8.12-beta → 1.0.0
+
+320 commits and seven releases in eighteen days (4–19 September), ending in upstream's first
+non-beta tag. Read from a detached worktree at `1.0.0`, per the procedural fix above. Seven new
+preference keys, but the keys understate this window: most of its weight is in a feature that
+needed none, and in a sync fix that only added bookkeeping keys.
+
+| Upstream | Ours |
+|---|---|
+| IntroDB **film** segments — `is_movie=true`, end credits and post-credits scene, plus a *Skip to Post-Credits* label | **Ported in 1.0.36**, and it closes a gap we shipped ourselves last release. Films had no marks at all: `loadSkipSegmentsIfNeeded` required an episode number, so it returned early on every film. |
+| Post-play film recommendations fired from the credits instead of a percentage | **Ported in 1.0.36.** This replaces what 1.0.35 shipped. Credits run from ninety seconds to eight minutes, so a flat 90% lands deep inside them on a long film and before the last scene on a short one. A marked post-credits scene now holds the card until the scene has *played*. |
+| Post-credits detection extended to series outros | **Declined, deliberately.** Their series route cannot return an explicit `post_credits` mark, so on series the change is a five-second-tail heuristic and nothing else — and almost every episode has more than five seconds of black, a studio card or a next-episode preview after its ending. Ported for films, where a tail past the credits does mean something. |
+| `progress_upserts` / `progress_deletes` / `watched_upserts` / `watched_deletes` — an offline queue of watch-state mutations | **The matching defect was ours, and worse.** See below. Fixed in 1.0.36; the queue itself is not ported — our sync pushes deletions and reconciles by timestamp rather than replaying a mutation log. |
+| `custom_theme_colors` — a three-colour custom theme with a hex dialog and colour picker | Open. We ship seven preset palettes and AMOLED; this adds a viewer-defined one. A colour picker driven by a remote is the bulk of the work, not the palette derivation. |
+| `startup_splash_enabled` — a branded splash gated by destination | Open, and small. Worth doing with the icon work rather than alone. |
+| `PlaybackAvailability` — grey out *Play* when no enabled addon or scraper can serve a stream for that id | Open. A genuine improvement: it reads `resources`/`idPrefixes` off installed addons, which we already parse. |
+| `mpv_hi10p_gnext_software_fallback_enabled` — force software decoding for 10-bit H.264 | Open, and **unverified**. Their heuristic matches `hi10`/`10bit` against the stream *name*, which is guesswork; VideoToolbox also refuses H.264 High 10, but mpv's `hwdec` fallback may already cover it in-engine. Needs a Hi10p file on the real device before anything is added. |
+| Letterbox left transparent so HDR bars stay true black | Open, **unverified**, and hardware-only. Their fix is for an ExoPlayer SurfaceView; ours is an mpv Metal layer, so the question transfers but the answer does not. |
+| Stream dedup no longer collapsing two differently-named streams on one URL | **N/A.** We do not dedup streams at all — the dedup in `StreamsView` is for subtitle tracks. Their fix repairs machinery we never built. |
+| 4:3 1080p no longer matched down to 720p | **N/A.** We hand tvOS a `CMFormatDescription` with the real dimensions and let `AVDisplayManager` choose; their bug is in their own resolution bucketing. |
+| FFmpeg downmix distortion and buffer growth | **N/A.** Their own JNI FFmpeg decoder extension for ExoPlayer. mpv does its own downmix, and normalisation shipped in 1.0.24. |
+| A watched tick on episodes in the in-player panel | **Ported in 1.0.36**, adapted: their tick sits on the still and ours has no still, so the leading icon carries three states instead of one. |
+| Turning subtitles off by long-pressing the selected track | **N/A.** Their track list has no *Off* row and ours does. |
+| RTL layout and text direction, ~25 commits | **N/A** while the app ships English and French. Becomes real the day a RTL table is added. |
+| Search suggestions and catalog paging tied to the search run | Open. Worth a read on its own; roughly a dozen focus fixes ride along with it. |
+| Custom theme previews, recomposition profiling, moov caching, chunk eviction, memory budget | **N/A.** Compose and ExoPlayer internals, and most of the memory work serves the parallel chunked downloader we declined. |
+
+### The defect this window exposed in our tree
+
+Upstream's four new sync keys are bookkeeping for an offline mutation queue. Reading why they
+needed it pointed straight at `NuvioSyncService.syncWatchProgress`, which **had no deletion path
+at all** — while `syncLibrary`, six lines above it, has one, and carries a comment explaining
+exactly the hazard: *"Deletions go first: otherwise the pull would hand back the rows this device
+removed and they would be re-adopted before the delete was ever sent."*
+
+Watch progress never got that treatment, and two viewer actions delete a progress row, not one:
+
+- **removing a title from Continue Watching**, and
+- **marking a film or an episode unwatched** — our watched state *is* a progress row at full
+  duration, so un-marking is `clearProgress`.
+
+For anyone signed into a Nuvio account with sync on, both were reverted by the next sync: the
+pull found no local row, called `adoptProgress`, and put it back. Silently, and with no way to
+tell it had happened other than watching the title reappear. The account even exposes the RPC —
+`sync_delete_watch_progress` — we simply never called it.
+
+It is also a convergence worth recording. The poster-options dialog that performs both actions
+was unreachable from 1.0.18 to 1.0.32; the release that finally made it reachable is the release
+that started feeding this bug. Twenty policy tests covered the dialog's *decisions* and none of
+them pressed anything or synced anything.
+
+Fixed in 1.0.36 by mirroring the library's queue: `pendingProgressDeletions`, pushed before the
+pull, with `adoptProgress` refusing a queued key and any fresh write cancelling it. The queue is
+stored durably rather than in the purgeable cache the library's queue uses — a purged deletion
+queue resurrects exactly the rows it was holding. Flipping the library's own queue needs a
+migration read from its current location and is left as its own change.
 
 ## Findings this pass turned up in our own tree
 

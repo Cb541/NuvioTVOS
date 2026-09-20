@@ -5,6 +5,8 @@ import SwiftUI
 struct InPlayerEpisodesView: View {
     @Environment(\.nuvioColors) private var colors
     @Environment(AddonStore.self) private var addons
+    @Environment(LibraryStore.self) private var library
+    @Environment(AppSettings.self) private var settings
 
     let request: PlaybackRequest
     let onDismiss: () -> Void
@@ -60,7 +62,7 @@ struct InPlayerEpisodesView: View {
                         InPlayerPanelRow(
                             title: episodeLabel(episode),
                             subtitle: episode.displayOverview?.nilIfBlank,
-                            systemImage: "play.circle",
+                            systemImage: progressIcon(for: episode),
                             isSelected: episode.id == request.videoId,
                             requestsInitialFocus: episode.id == request.videoId
                                 || (!episodes.contains(where: { $0.id == request.videoId }) && index == 0)
@@ -70,6 +72,17 @@ struct InPlayerEpisodesView: View {
             }
         }
         .task { await load() }
+    }
+
+    /// Three states in one symbol family, which is what the panel had none of: every episode
+    /// drew the same outline whether it had been finished, started or never opened. Upstream
+    /// distinguishes finished from started on the still; this row has no still, so the leading
+    /// icon carries it.
+    private func progressIcon(for episode: Video) -> String {
+        if library.isWatched(videoId: episode.id, threshold: settings.watchedThreshold) {
+            return "checkmark.circle.fill"
+        }
+        return library.progress(forVideoId: episode.id) == nil ? "play.circle" : "play.circle.fill"
     }
 
     private func load() async {

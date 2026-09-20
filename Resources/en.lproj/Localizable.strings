@@ -205,6 +205,8 @@
 /* Player overlays, tracker libraries, cast and list picker */
 "player.skip_intro" = "Skip intro";
 "player.skip_outro" = "Skip outro";
+"player.skip_credits" = "Skip credits";
+"player.skip_to_post_credits" = "Skip to post-credits";
 "player.skip_recap" = "Skip recap";
 "player.skip_segment" = "Skip segment";
 "player.episodes_series_only" = "Episode selection is available for series only.";
@@ -563,6 +565,8 @@
 "settings.integrations.skip_recaps_auto_sub" = "Jump past the previously-on";
 "settings.integrations.skip_outros_auto" = "Skip outros automatically";
 "settings.integrations.skip_outros_auto_sub" = "Jumps to the end of the episode as the credits begin";
+"settings.integrations.skip_credits_auto" = "Skip end credits automatically";
+"settings.integrations.skip_credits_auto_sub" = "Films only, and a post-credits scene is always kept";
 "settings.integrations.source_list" = "Source list";
 "settings.integrations.badge_placement" = "Badge placement";
 "settings.integrations.addon_logos" = "Addon logos";

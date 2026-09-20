@@ -441,6 +441,11 @@ struct AnimeSkipSettingsCard: View {
                     .outro, title: L10n.text("settings.integrations.skip_outros_auto", fallback: "Skip outros automatically"),
                     subtitle: L10n.text("settings.integrations.skip_outros_auto_sub", fallback: "Jumps to the end of the episode as the credits begin")
                 )
+                autoSkipToggle(
+                    .movieCredits,
+                    title: L10n.text("settings.integrations.skip_credits_auto", fallback: "Skip end credits automatically"),
+                    subtitle: L10n.text("settings.integrations.skip_credits_auto_sub", fallback: "Films only, and a post-credits scene is always kept")
+                )
             }
 
         }
