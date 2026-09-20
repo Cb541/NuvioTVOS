@@ -22,6 +22,7 @@ struct MetaDetailsView: View {
     /// The long-press overlay on an episode. Held here rather than on the router because it is
     /// only reachable from this screen and dies with it.
     @State private var episodeOptions: EpisodeOptionsRequest?
+    @State private var collectionBrowser: TMDBCollectionBrowserRequest?
 
     var body: some View {
         GeometryReader { proxy in
@@ -60,6 +61,12 @@ struct MetaDetailsView: View {
                     onDismiss: { episodeOptions = nil }
                 )
             }
+        }
+        .fullScreenCover(item: $collectionBrowser) { request in
+            TMDBCollectionBrowseView(
+                title: request.title,
+                items: request.items
+            )
         }
     }
 
@@ -144,9 +151,15 @@ struct MetaDetailsView: View {
                     CatalogRowView(
                         title: collection.name,
                         items: collection.items,
-                        showsSeeAll: false,
+                        showsSeeAll: true,
                         backdropExpandEnabled: false,
-                        onSelect: { router.openDetail($0) }
+                        onSelect: { router.openDetail($0) },
+                        onSeeAll: {
+                            collectionBrowser = TMDBCollectionBrowserRequest(
+                                title: collection.name,
+                                items: collection.items
+                            )
+                        }
                     )
                 }
 
@@ -755,5 +768,76 @@ private struct CompanyCard: View {
         }
         .buttonStyle(NuvioCardButtonStyle(cornerRadius: NuvioTheme.radii.md))
         .disabled(company.tmdbId == nil)
+    }
+}
+// MARK: - TMDB collection browser
+
+private struct TMDBCollectionBrowserRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let items: [MetaPreview]
+}
+
+struct TMDBCollectionBrowseView: View {
+    @Environment(\.nuvioColors) private var colors
+    @Environment(\.posterMetrics) private var metrics
+    @Environment(Router.self) private var router
+    @Environment(\.dismiss) private var dismiss
+
+    let title: String
+    let items: [MetaPreview]
+
+    private var visibleItems: [MetaPreview] {
+        items
+    }
+
+    var body: some View {
+        ZStack {
+            colors.background
+                .ignoresSafeArea()
+
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: NuvioTheme.spacing.xl) {
+                    Text(title)
+                        .nuvioText(NuvioTextStyles.display)
+                        .foregroundStyle(colors.textPrimary)
+                        .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+
+                    if visibleItems.isEmpty {
+                        EmptyStateView(
+                            systemImage: "rectangle.on.rectangle",
+                            title: L10n.text("library.empty_catalog", fallback: "Empty collection"),
+                            message: L10n.text(
+                                "library.empty_catalog_body",
+                                fallback: "This collection has no items to display."
+                            )
+                        )
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: dp(340))
+                    } else {
+                        LazyVGrid(
+                            columns: metrics.gridColumns(),
+                            alignment: .leading,
+                            spacing: NuvioTheme.spacing.xl
+                        ) {
+                            ForEach(visibleItems, id: \.rowKey) { item in
+                                ContentCard(
+                                    item: item,
+                                    allowsBackdropExpand: false,
+                                    action: { router.openDetail(item) }
+                                )
+                            }
+                        }
+                        .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+                    }
+                }
+                .padding(.top, NuvioTheme.layout.tvSafeVertical)
+                .padding(.bottom, NuvioTheme.spacing.rail.tailPadding)
+            }
+            .scrollClipDisabled()
+        }
+        .onExitCommand {
+            dismiss()
+        }
     }
 }
