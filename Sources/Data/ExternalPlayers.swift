@@ -119,6 +119,13 @@ enum ExternalPlayerLauncher {
     }
 
     static func isInstalled(_ player: ExternalPlayer) -> Bool {
+        // tvOS can report false for SenPlayer's custom URL scheme even when
+        // the app is installed. SenPlayer has a verified x-callback handoff,
+        // so keep it available in the external-player list.
+        if player == .senplayer {
+            return true
+        }
+
         guard let probe = URL(string: "\(player.probeScheme)://") else { return false }
         return UIApplication.shared.canOpenURL(probe)
     }
@@ -130,8 +137,14 @@ enum ExternalPlayerLauncher {
         title: String?,
         subtitleURL: String? = nil
     ) -> Bool {
-        guard let url = player.playbackURL(for: stream, title: title, subtitleURL: subtitleURL),
-              UIApplication.shared.canOpenURL(url) else { return false }
+        guard let url = player.playbackURL(for: stream, title: title, subtitleURL: subtitleURL) else {
+            return false
+        }
+
+        if player != .senplayer && !UIApplication.shared.canOpenURL(url) {
+            return false
+        }
+
         UIApplication.shared.open(url)
         return true
     }
