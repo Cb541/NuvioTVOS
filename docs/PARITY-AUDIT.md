@@ -64,7 +64,7 @@ platform refuses the upstream approach.
 | Local library/progress ✻ | Parity | Save/remove, Continue Watching, watched threshold, per-profile persistence, account sync, removal from Continue Watching (1.0.18) and a sort control (1.0.19). **Until 1.0.36 neither a removal nor an un-marking survived an account sync** — see the 1.0.0 triage below. |
 | Trakt | Parity | OAuth, progress, list reads, comments, related titles, scrobbling, `sync/watchlist` and `sync/history` writes. Upstream has no `sync/collection`; neither do we. |
 | Simkl | Parity | Five list states, remote resume points, scrobbling, `add-to-list`/`history` writes, the anime identity model since 1.0.22, and playback-session deletion since 1.0.26. Snapshot reconciliation does not apply here; see *Differences assumed*. |
-| Next Up from trackers ✻ | Partial | Since 1.0.21 a series whose last episode was finished is offered its next one, with the airing rules, both anchor modes and per-series dismissal. Previously the rail held only half-watched episodes, so finishing one removed the series from Home entirely. Since 1.0.25 the episode list is seeded from Continue Watching rather than waiting on a detail-screen visit, bounded to the front of the rail. Since 1.0.29 sibling ids are reconciled where rows are emitted: two addons keying one show differently produced two rows in the rail, each offering a different next episode. Bridged on the IMDb id, which the metadata carries even when the addon's own id is in another namespace. |
+| Next Up from trackers ✻ | Parity | Since 1.0.21 a series whose last episode was finished is offered its next one, with the airing rules, both anchor modes and per-series dismissal. Previously the rail held only half-watched episodes, so finishing one removed the series from Home entirely. Since 1.0.25 the episode list is seeded from Continue Watching rather than waiting on a detail-screen visit, bounded to the front of the rail. Since 1.0.29 sibling ids are reconciled where rows are emitted: two addons keying one show differently produced two rows in the rail, each offering a different next episode. Bridged on the IMDb id, which the metadata carries even when the addon's own id is in another namespace. |
 | Debrid providers ✻ | Parity | Validation, cache checks, resolution, file choice, cloud libraries for all three, TorBox device sign-in, and since 1.0.20 the stream name/description template language with its editor. The DSL is ported rather than reinvented, so a format written on Android pastes in and produces the same rows. |
 | Stream filtering/ranking | Parity | Resolution, quality, HDR/DV, codec, audio, channels, language, group, limits and the sort matrix are consumed. |
 | Stream badges | Parity | Computed badges from parsed attributes, plus — since 1.0.23 — imported rule packs: named regular expressions with their own colours and logos, matched against every field an addon supplied. Upstream's file format, so a pack written for Android TV imports unchanged. Three packs held, one applied. |
@@ -107,7 +107,8 @@ path and AVFoundation refuses.
   management and the Simkl removal warning in **1.0.30**. This entry is closed.
 - **Home**: no inline trailers. Forced, not missing — see below.
 - ~~**Next Up**~~ — the episode cache is seeded from Continue Watching since **1.0.25** and
-  sibling ids are reconciled since **1.0.29**. This entry is closed.
+  sibling ids are reconciled since **1.0.29**. This entry is closed. *The table above carried
+  `Partial` for it until 1.0.36; that status was stale from the day this line was written.*
 - ~~**Player audio**~~ — three of the five shipped in **1.0.24**; the other two moved to
   *Forced*, having no tvOS equivalent to build.
 - **Subtitles**: no sync-by-line dialog.
