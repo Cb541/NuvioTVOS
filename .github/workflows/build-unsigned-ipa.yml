@@ -20,6 +20,19 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks | grep -i tvos || true
 
+      - name: Fetch playback frameworks
+        run: |
+          chmod +x Scripts/fetch-mpv.sh
+          ./Scripts/fetch-mpv.sh
+
+      - name: Verify playback frameworks
+        run: |
+          test -d Vendor/Libmpv.xcframework
+          test -d Vendor/Libavcodec.xcframework
+          test -d Vendor/MoltenVK.xcframework
+          echo "Vendor frameworks present:"
+          find Vendor -maxdepth 1 -name '*.xcframework' -type d | sort
+
       - name: Generate Xcode project
         run: xcodegen generate
 
