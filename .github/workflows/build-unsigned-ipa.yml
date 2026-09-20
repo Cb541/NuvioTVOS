@@ -1,0 +1,63 @@
+name: Build unsigned tvOS IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Nuvio tvOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i tvos || true
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned archive
+        run: |
+          rm -rf build
+
+          xcodebuild archive \
+            -project NuvioTVOS.xcodeproj \
+            -scheme NuvioTVOS \
+            -configuration Release \
+            -sdk appletvos \
+            -destination 'generic/platform=tvOS' \
+            -archivePath build/NuvioTVOS.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="build/NuvioTVOS.xcarchive/Products/Applications/Nuvio.app"
+
+          test -d "$APP_PATH"
+
+          rm -rf build/Payload
+          mkdir -p build/Payload
+
+          cp -R "$APP_PATH" build/Payload/
+
+          cd build
+          zip -qry NuvioTVOS-1.0.35-unsigned.ipa Payload
+
+          test -f NuvioTVOS-1.0.35-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: NuvioTVOS-1.0.35-unsigned
+          path: build/NuvioTVOS-1.0.35-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
