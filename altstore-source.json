@@ -40,6 +40,16 @@
       ],
       "versions": [
         {
+          "version": "1.0.36",
+          "buildVersion": "38",
+          "date": "2026-09-20",
+          "localizedDescription": "Deux corrections, l'une d'elles silencieuse depuis un moment.\n\n**Retirer un titre de « Reprendre » tient enfin.** Si tu utilises un compte Nuvio avec la synchronisation, retirer un média de la liste Reprendre — ou le marquer comme non vu — était annulé à la synchronisation suivante : le serveur renvoyait la ligne, l'app la reprenait, le titre revenait. Les suppressions sont maintenant envoyées au compte avant chaque relecture. La bibliothèque avait déjà ce traitement ; la progression de lecture ne l'a jamais eu.\n\n**Les films ont un générique.** L'app ne demandait les marques de saut que pour les épisodes, donc un film n'en avait aucune. Désormais : une carte « Passer le générique » à la fin d'un film, et une scène post-générique n'est jamais sautée — si le film en a une, la carte propose d'y aller.\n\n**Les recommandations de fin de film arrivent au bon moment.** Elles se déclenchaient à 90 % de la durée. Un générique dure de 90 secondes à huit minutes, donc 90 % tombait en plein dedans sur un film long, et avant la dernière scène sur un film court. Elles suivent maintenant le générique lui-même, et attendent la fin d'une scène post-générique plutôt que de la recouvrir.\n\nAussi : le panneau Épisodes du lecteur distingue enfin épisode vu, commencé et jamais ouvert. Et le saut automatique du générique de fin est réglable, films uniquement, dans Réglages → Intégrations.",
+          "downloadURL": "https://github.com/vatax3/NuvioTVOS/releases/download/v1.0.36/Nuvio-1.0.36-tvOS-unsigned.ipa",
+          "size": 32013491,
+          "minOSVersion": "17.0",
+          "sha256": "2ac93d99392af455318e8ac09e8d405e0d4f78d2f214af4d514ef7a98e410514"
+        },
+        {
           "version": "1.0.35",
           "buildVersion": "37",
           "date": "2026-09-03",
@@ -276,11 +286,11 @@
         ],
         "privacy": {}
       },
-      "version": "1.0.35",
-      "versionDate": "2026-09-03",
-      "versionDescription": "**Films now offer something when they end.**\n\nA film used to reach its last frame and stop. It now shows titles like the one you just watched,\nfrom about 90% in — adjustable in Settings → Playback.\n\n**A language picker.** Settings → Appearance → Language. Independent of the Apple TV's own\nlanguage, and it takes effect immediately. Settings are now fully translated, options included,\nalong with the first-run walkthrough.\n\n**Anime skip marks land on the right episode.** Intro and outro marks were resolved through a\nservice that maps one entry per season by position. Anime and TV numbering disagree on most long\nshows, so a second season asked for episode 1 when the anime calls it 13 — and got the wrong\nmarks, for the wrong show. Resolved through Simkl now, which knows the real mapping.\n\n**A choice of background** behind the episode options: plain, artwork, or blurred artwork.",
-      "downloadURL": "https://github.com/vatax3/NuvioTVOS/releases/download/v1.0.35/Nuvio-1.0.35-tvOS-unsigned.ipa",
-      "size": 32000377,
+      "version": "1.0.36",
+      "versionDate": "2026-09-20",
+      "versionDescription": "Deux corrections, l'une d'elles silencieuse depuis un moment.\n\n**Retirer un titre de « Reprendre » tient enfin.** Si tu utilises un compte Nuvio avec la synchronisation, retirer un média de la liste Reprendre — ou le marquer comme non vu — était annulé à la synchronisation suivante : le serveur renvoyait la ligne, l'app la reprenait, le titre revenait. Les suppressions sont maintenant envoyées au compte avant chaque relecture. La bibliothèque avait déjà ce traitement ; la progression de lecture ne l'a jamais eu.\n\n**Les films ont un générique.** L'app ne demandait les marques de saut que pour les épisodes, donc un film n'en avait aucune. Désormais : une carte « Passer le générique » à la fin d'un film, et une scène post-générique n'est jamais sautée — si le film en a une, la carte propose d'y aller.\n\n**Les recommandations de fin de film arrivent au bon moment.** Elles se déclenchaient à 90 % de la durée. Un générique dure de 90 secondes à huit minutes, donc 90 % tombait en plein dedans sur un film long, et avant la dernière scène sur un film court. Elles suivent maintenant le générique lui-même, et attendent la fin d'une scène post-générique plutôt que de la recouvrir.\n\nAussi : le panneau Épisodes du lecteur distingue enfin épisode vu, commencé et jamais ouvert. Et le saut automatique du générique de fin est réglable, films uniquement, dans Réglages → Intégrations.",
+      "downloadURL": "https://github.com/vatax3/NuvioTVOS/releases/download/v1.0.36/Nuvio-1.0.36-tvOS-unsigned.ipa",
+      "size": 32013491,
       "minOSVersion": "17.0"
     }
   ],
