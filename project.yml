@@ -176,6 +176,7 @@ targets:
           - vlc-x-callback
           - vlc
           - nplayer
+          - senplayer
           - outplayer
         CFBundleURLTypes:
           - CFBundleTypeRole: Viewer
