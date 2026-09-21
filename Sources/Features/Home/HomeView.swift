@@ -115,6 +115,36 @@ struct HomeRailList: View {
     var allowsBackdropExpand: Bool = true
 
     @FocusState private var focusedCardKey: String?
+    @State private var hiddenHomeRowID: String?
+
+    private let continueWatchingRowID = "__continue_watching__"
+
+    private var homeRowIDs: [String] {
+        var ids: [String] = []
+
+        if !continueWatching.isEmpty {
+            ids.append(continueWatchingRowID)
+        }
+
+        ids.append(contentsOf: pinnedCollections.map(\.homeRowKey))
+        ids.append(contentsOf: displayRows.map(\.id))
+
+        return ids
+    }
+
+    private func hideRowAbove(collection: MediaCollection) {
+        guard let index = homeRowIDs.firstIndex(of: collection.homeRowKey),
+              index > 0 else {
+            hiddenHomeRowID = nil
+            return
+        }
+
+        hiddenHomeRowID = homeRowIDs[index - 1]
+    }
+
+    private func clearHiddenHomeRow() {
+        hiddenHomeRowID = nil
+    }
     @State private var didClaimInitialFocus = false
 
     private var continueWatching: [ContinueWatchingEntry] {
@@ -190,20 +220,32 @@ struct HomeRailList: View {
                 ContinueWatchingRow(
                     entries: continueWatching,
                     style: settings.layout.continueWatchingCardStyle,
-                    onFocusItem: { model.focusedItem = $0 },
+                    onFocusItem: {
+                        clearHiddenHomeRow()
+                        model.focusedItem = $0
+                    },
                     onSelect: { entry in
                         router.openDetail(entry.preview)
                     },
                     cardFocus: $focusedCardKey
                 )
+                .opacity(hiddenHomeRowID == continueWatchingRowID ? 0 : 1)
+                .disabled(hiddenHomeRowID == continueWatchingRowID)
+                .accessibilityHidden(hiddenHomeRowID == continueWatchingRowID)
             }
 
             ForEach(pinnedCollections) { collection in
                 CollectionRail(
                     collection: collection,
                     focusBinding: $focusedCardKey,
-                    onFocusItem: { model.focusedItem = $0 }
+                    onFocusItem: {
+                        hideRowAbove(collection: collection)
+                        model.focusedItem = $0
+                    }
                 )
+                .opacity(hiddenHomeRowID == collection.homeRowKey ? 0 : 1)
+                .disabled(hiddenHomeRowID == collection.homeRowKey)
+                .accessibilityHidden(hiddenHomeRowID == collection.homeRowKey)
             }
 
             ForEach(displayRows) { entry in
@@ -216,7 +258,10 @@ struct HomeRailList: View {
                             items: row.items,
                             isLoading: row.isLoading || row.isLoadingMore,
                             backdropExpandEnabled: allowsBackdropExpand,
-                            onFocusItem: { model.focusedItem = $0 },
+                            onFocusItem: {
+                                clearHiddenHomeRow()
+                                model.focusedItem = $0
+                            },
                             onSelect: { router.openDetail($0) },
                             onSeeAll: { router.push(.catalogSeeAll(row.request)) },
                             onReachEnd: {
@@ -224,13 +269,22 @@ struct HomeRailList: View {
                             },
                             cardFocus: $focusedCardKey
                         )
+                        .opacity(hiddenHomeRowID == entry.id ? 0 : 1)
+                        .disabled(hiddenHomeRowID == entry.id)
+                        .accessibilityHidden(hiddenHomeRowID == entry.id)
                     }
                 case .collection(let collection):
                     CollectionRail(
                         collection: collection,
                         focusBinding: $focusedCardKey,
-                        onFocusItem: { model.focusedItem = $0 }
+                        onFocusItem: {
+                            hideRowAbove(collection: collection)
+                            model.focusedItem = $0
+                        }
                     )
+                    .opacity(hiddenHomeRowID == entry.id ? 0 : 1)
+                    .disabled(hiddenHomeRowID == entry.id)
+                    .accessibilityHidden(hiddenHomeRowID == entry.id)
                 }
             }
         }
