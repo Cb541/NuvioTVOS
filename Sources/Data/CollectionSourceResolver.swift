@@ -29,7 +29,7 @@ enum CollectionSourceResolver {
     struct Page {
         var items: [MetaPreview] = []
         var unavailable: Unavailable?
-        /// False once a page comes back short, so a rail stops asking for more.
+        /// False once a page comes back empty, so a rail stops asking for more.
         var hasMore: Bool = false
     }
 
@@ -88,9 +88,10 @@ enum CollectionSourceResolver {
             extraArgs: extras
         )) ?? []
 
-        let hasMore = declaredPageSize.map {
-            items.count >= $0
-        } ?? !items.isEmpty
+        // Stremio-style pagination follows the actual response size rather than the
+        // manifest's declared pageSize. A catalog may declare 50 while returning 20
+        // items per request, and those 20 still mean another page can be requested.
+        let hasMore = !items.isEmpty
 
         return Page(items: items, hasMore: hasMore)
     }
