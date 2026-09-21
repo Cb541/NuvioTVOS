@@ -134,5 +134,6 @@ struct CollectionRail: View {
             .scrollClipDisabled()
         }
         .focusSection()
+        .clipped()
     }
 }
