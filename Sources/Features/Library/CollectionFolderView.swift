@@ -204,6 +204,7 @@ struct CollectionFolderView: View {
                         items: tab.items,
                         isLoading: tab.isLoading,
                         showsSeeAll: false,
+                        backdropExpandEnabled: false,
                         onSelect: { open($0) },
                         onReachEnd: {
                             Task { await model.loadMore(tab.id, addons: addons, settings: settings) }
