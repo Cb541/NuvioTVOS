@@ -131,7 +131,6 @@ struct CollectionRail: View {
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
                 .padding(.vertical, NuvioTheme.spacing.sm)
             }
-            .scrollClipDisabled()
         }
         .focusSection()
     }
