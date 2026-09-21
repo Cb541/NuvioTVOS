@@ -115,6 +115,7 @@ struct HomeRailList: View {
     var allowsBackdropExpand: Bool = true
 
     @FocusState private var focusedCardKey: String?
+    @State private var hiddenHomeRowIDs: Set<String> = []
     @State private var focusedCollectionRowID: String?
 
     private let continueWatchingRowID = "__continue_watching__"
@@ -132,6 +133,28 @@ struct HomeRailList: View {
         return ids
     }
 
+    private func hideRowsAround(collection: MediaCollection) {
+        guard let index = homeRowIDs.firstIndex(of: collection.homeRowKey) else {
+            hiddenHomeRowIDs = []
+            return
+        }
+
+        var hidden: Set<String> = []
+
+        if index > 0 {
+            hidden.insert(homeRowIDs[index - 1])
+        }
+
+        if index + 1 < homeRowIDs.count {
+            hidden.insert(homeRowIDs[index + 1])
+        }
+
+        hiddenHomeRowIDs = hidden
+    }
+
+    private func clearHiddenHomeRows() {
+        hiddenHomeRowIDs = []
+    }
 
     @State private var didClaimInitialFocus = false
 
@@ -209,6 +232,7 @@ struct HomeRailList: View {
                     entries: continueWatching,
                     style: settings.layout.continueWatchingCardStyle,
                     onFocusItem: {
+                        clearHiddenHomeRows()
                         focusedCollectionRowID = nil
                         model.focusedItem = $0
                     },
@@ -217,6 +241,11 @@ struct HomeRailList: View {
                     },
                     cardFocus: $focusedCardKey
                 )
+                .overlay {
+                    if hiddenHomeRowIDs.contains(continueWatchingRowID) {
+                        Color.black.allowsHitTesting(false)
+                    }
+                }
             }
 
             ForEach(pinnedCollections) { collection in
@@ -224,12 +253,17 @@ struct HomeRailList: View {
                     collection: collection,
                     focusBinding: $focusedCardKey,
                     onFocusItem: {
+                        hideRowsAround(collection: collection)
                         focusedCollectionRowID = collection.homeRowKey
                         model.focusedItem = $0
                     }
                 )
                 .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
-                .zIndex(focusedCollectionRowID == collection.homeRowKey ? 10 : 0)
+                .overlay {
+                    if hiddenHomeRowIDs.contains(collection.homeRowKey) {
+                        Color.black.allowsHitTesting(false)
+                    }
+                }
             }
 
             ForEach(displayRows) { entry in
@@ -243,6 +277,7 @@ struct HomeRailList: View {
                             isLoading: row.isLoading || row.isLoadingMore,
                             backdropExpandEnabled: allowsBackdropExpand,
                             onFocusItem: {
+                                clearHiddenHomeRows()
                                 model.focusedItem = $0
                             },
                             onSelect: { router.openDetail($0) },
@@ -252,17 +287,27 @@ struct HomeRailList: View {
                             },
                             cardFocus: $focusedCardKey
                         )
+                        .overlay {
+                            if hiddenHomeRowIDs.contains(entry.id) {
+                                Color.black.allowsHitTesting(false)
+                            }
+                        }
                     }
                 case .collection(let collection):
                     CollectionRail(
                         collection: collection,
                         focusBinding: $focusedCardKey,
                         onFocusItem: {
+                            hideRowsAround(collection: collection)
                             model.focusedItem = $0
                         }
                     )
                     .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
-                    .zIndex(focusedCollectionRowID == collection.homeRowKey ? 10 : 0)
+                    .overlay {
+                        if hiddenHomeRowIDs.contains(collection.homeRowKey) {
+                            Color.black.allowsHitTesting(false)
+                        }
+                    }
                 }
             }
         }
