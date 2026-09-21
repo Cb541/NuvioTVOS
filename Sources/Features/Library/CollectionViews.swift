@@ -17,7 +17,7 @@ struct CollectionFolderCard: View {
     /// uses it to drive the hero; the library grid has nothing above the rail and passes nil.
     var onFocus: (() -> Void)?
     let action: () -> Void
-
+    let focusKey: String
     private var size: CGSize { metrics.size(for: folder.tileShape) }
 
     var body: some View {
@@ -48,7 +48,7 @@ struct CollectionFolderCard: View {
             .clipped()
         }
         .buttonStyle(NuvioCardButtonStyle(cornerRadius: metrics.cornerRadius))
-        .modifier(OptionalCardFocus(binding: focusBinding, key: folder.id))
+        .modifier(OptionalCardFocus(binding: focusBinding, key: focusKey))
         .onFocusChange { focused in
             guard focused else { return }
             onFocus?()
@@ -114,9 +114,10 @@ struct CollectionRail: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: NuvioTheme.components.row.itemSpacing) {
-                    ForEach(collection.folders) { folder in
+                    ForEach(collection.folders, id: \.id) { folder in
                         CollectionFolderCard(
                             folder: folder,
+                            focusKey: "collection-folder#\(collection.id)#\(folder.id)",
                             focusBinding: focusBinding,
                             onFocus: onFocusItem.map { report in
                                 { report(folder.heroPreview(in: collection)) }
