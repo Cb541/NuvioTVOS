@@ -241,8 +241,6 @@ struct HomeRailList: View {
                     cardFocus: $focusedCardKey
                 )
                 .opacity(hiddenHomeRowIDs.contains(continueWatchingRowID) ? 0 : 1)
-                .disabled(hiddenHomeRowIDs.contains(continueWatchingRowID))
-                .accessibilityHidden(hiddenHomeRowIDs.contains(continueWatchingRowID))
             }
 
             ForEach(pinnedCollections) { collection in
@@ -256,8 +254,6 @@ struct HomeRailList: View {
                     }
                 )
                 .opacity(hiddenHomeRowIDs.contains(collection.homeRowKey) ? 0 : 1)
-                .disabled(hiddenHomeRowIDs.contains(collection.homeRowKey))
-                .accessibilityHidden(hiddenHomeRowIDs.contains(collection.homeRowKey))
                 .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
             }
 
@@ -283,8 +279,6 @@ struct HomeRailList: View {
                             cardFocus: $focusedCardKey
                         )
                         .opacity(hiddenHomeRowIDs.contains(entry.id) ? 0 : 1)
-                        .disabled(hiddenHomeRowIDs.contains(entry.id))
-                        .accessibilityHidden(hiddenHomeRowIDs.contains(entry.id))
                     }
                 case .collection(let collection):
                     CollectionRail(
@@ -296,8 +290,6 @@ struct HomeRailList: View {
                         }
                     )
                     .opacity(hiddenHomeRowIDs.contains(entry.id) ? 0 : 1)
-                    .disabled(hiddenHomeRowIDs.contains(entry.id))
-                    .accessibilityHidden(hiddenHomeRowIDs.contains(entry.id))
                     .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
                 }
             }
