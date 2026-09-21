@@ -241,9 +241,11 @@ struct HomeRailList: View {
                     },
                     cardFocus: $focusedCardKey
                 )
-                .overlay {
+                .mask {
                     if hiddenHomeRowIDs.contains(continueWatchingRowID) {
-                        Color.black.allowsHitTesting(false)
+                        Color.clear
+                    } else {
+                        Color.white
                     }
                 }
             }
@@ -259,9 +261,11 @@ struct HomeRailList: View {
                     }
                 )
                 .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
-                .overlay {
+                .mask {
                     if hiddenHomeRowIDs.contains(collection.homeRowKey) {
-                        Color.black.allowsHitTesting(false)
+                        Color.clear
+                    } else {
+                        Color.white
                     }
                 }
             }
@@ -287,9 +291,11 @@ struct HomeRailList: View {
                             },
                             cardFocus: $focusedCardKey
                         )
-                        .overlay {
+                        .mask {
                             if hiddenHomeRowIDs.contains(entry.id) {
-                                Color.black.allowsHitTesting(false)
+                                Color.clear
+                            } else {
+                                Color.white
                             }
                         }
                     }
@@ -303,9 +309,11 @@ struct HomeRailList: View {
                         }
                     )
                     .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
-                    .overlay {
+                    .mask {
                         if hiddenHomeRowIDs.contains(collection.homeRowKey) {
-                            Color.black.allowsHitTesting(false)
+                            Color.clear
+                        } else {
+                            Color.white
                         }
                     }
                 }
