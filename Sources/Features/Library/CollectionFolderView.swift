@@ -87,7 +87,10 @@ final class CollectionFolderViewModel {
         let match = addons.enabledAddons
             .first { $0.id == addon.addonId }?
             .catalogs.first { $0.id == addon.catalogId }
-        if let genre = addon.genre?.nilIfBlank { return genre }
+        if let genre = addon.genre?.nilIfBlank,
+           genre.caseInsensitiveCompare("none") != .orderedSame {
+            return genre
+        }
         return match?.name ?? addon.catalogId
     }
 }

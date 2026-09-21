@@ -70,7 +70,10 @@ enum CollectionSourceResolver {
         let declaredPageSize = catalog?.pageSize.flatMap { $0 > 0 ? $0 : nil }
 
         var extras: [(String, String)] = []
-        if let genre = source.genre?.nilIfBlank { extras.append(("genre", genre)) }
+        if let genre = source.genre?.nilIfBlank,
+           genre.caseInsensitiveCompare("none") != .orderedSame {
+            extras.append(("genre", genre))
+        }
 
         let effectiveSkip = max(
             0,
