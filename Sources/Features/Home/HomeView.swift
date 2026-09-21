@@ -116,6 +116,7 @@ struct HomeRailList: View {
 
     @FocusState private var focusedCardKey: String?
     @State private var hiddenHomeRowIDs: Set<String> = []
+    @State private var focusedCollectionRowID: String?
 
     private let continueWatchingRowID = "__continue_watching__"
 
@@ -231,6 +232,7 @@ struct HomeRailList: View {
                     style: settings.layout.continueWatchingCardStyle,
                     onFocusItem: {
                         clearHiddenHomeRows()
+                        focusedCollectionRowID = nil
                         model.focusedItem = $0
                     },
                     onSelect: { entry in
@@ -249,12 +251,14 @@ struct HomeRailList: View {
                     focusBinding: $focusedCardKey,
                     onFocusItem: {
                         hideRowsAround(collection: collection)
+                        focusedCollectionRowID = collection.homeRowKey
                         model.focusedItem = $0
                     }
                 )
                 .opacity(hiddenHomeRowIDs.contains(collection.homeRowKey) ? 0 : 1)
                 .disabled(hiddenHomeRowIDs.contains(collection.homeRowKey))
                 .accessibilityHidden(hiddenHomeRowIDs.contains(collection.homeRowKey))
+                .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
             }
 
             ForEach(displayRows) { entry in
@@ -294,6 +298,7 @@ struct HomeRailList: View {
                     .opacity(hiddenHomeRowIDs.contains(entry.id) ? 0 : 1)
                     .disabled(hiddenHomeRowIDs.contains(entry.id))
                     .accessibilityHidden(hiddenHomeRowIDs.contains(entry.id))
+                    .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
                 }
             }
         }
