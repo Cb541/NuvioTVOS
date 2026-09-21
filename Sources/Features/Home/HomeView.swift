@@ -269,7 +269,6 @@ struct HomeRailList: View {
                             subtitle: row.subtitle,
                             items: row.items,
                             isLoading: row.isLoading || row.isLoadingMore,
-                            hideVisuals: hiddenHomeRowIDs.contains(entry.id),
                             backdropExpandEnabled: allowsBackdropExpand,
                             onFocusItem: {
                                 clearHiddenHomeRows()
@@ -280,7 +279,8 @@ struct HomeRailList: View {
                             onReachEnd: {
                                 Task { await model.loadMore(row) }
                             },
-                            cardFocus: $focusedCardKey
+                            cardFocus: $focusedCardKey,
+                            hideVisuals: hiddenHomeRowIDs.contains(entry.id)
                         )
 
                     }
