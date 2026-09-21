@@ -231,7 +231,6 @@ struct HomeRailList: View {
                 ContinueWatchingRow(
                     entries: continueWatching,
                     style: settings.layout.continueWatchingCardStyle,
-                    hideVisuals: hiddenHomeRowIDs.contains(continueWatchingRowID),
                     onFocusItem: {
                         clearHiddenHomeRows()
                         focusedCollectionRowID = nil
@@ -240,7 +239,8 @@ struct HomeRailList: View {
                     onSelect: { entry in
                         router.openDetail(entry.preview)
                     },
-                    cardFocus: $focusedCardKey
+                    cardFocus: $focusedCardKey,
+                    hideVisuals: hiddenHomeRowIDs.contains(continueWatchingRowID)
                 )
 
             }
