@@ -47,7 +47,12 @@ struct CollectionFolderCard: View {
             .frame(width: size.width, height: size.height)
             .clipped()
         }
-        .buttonStyle(NuvioCardButtonStyle(cornerRadius: metrics.cornerRadius))
+        .buttonStyle(
+            NuvioCardButtonStyle(
+                cornerRadius: metrics.cornerRadius,
+                elevated: folder.tileShape != .landscape
+            )
+        )
         .modifier(OptionalCardFocus(binding: focusBinding, key: folder.id))
         .onFocusChange { focused in
             guard focused else { return }
