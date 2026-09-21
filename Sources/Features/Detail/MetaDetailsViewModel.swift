@@ -82,10 +82,45 @@ final class MetaDetailsViewModel {
         error = nil
         defer { isLoading = false }
 
-        // Rows sourced from TMDB (recommendations, cast credits, network browse) carry a
-        // `tmdb:<id>` id, which no Stremio addon can answer. Trade it for the IMDb id first.
         var request = request
-        if let tmdbId = request.tmdbId {
+
+        // Keep the addon and original id supplied by the catalog as the first source of truth.
+        // Some catalogs use IDs/namespaces that are not representable as IMDb IDs, and TMDB
+        // should only be a fallback for those items.
+        let sourceAddon = request.addonBaseUrl.flatMap { addonStore.addon(withBaseUrl: $0) }
+
+        func candidates(for id: String) -> [Addon] {
+            let others = addonStore.addonsProviding(
+                resource: "meta", type: request.itemType, id: id
+            ).filter { $0.baseUrl != sourceAddon?.baseUrl }
+
+            if settings.layout.preferExternalMetaAddonDetail {
+                var result = others
+                if let sourceAddon { result.append(sourceAddon) }
+                return result
+            } else {
+                var result: [Addon] = []
+                if let sourceAddon { result.append(sourceAddon) }
+                result.append(contentsOf: others)
+                return result
+            }
+        }
+
+        // First try exactly what the catalog gave us.
+        var resolvedMeta: Meta?
+        for addon in candidates(for: request.itemId) {
+            if let resolved = try? await client.fetchMeta(
+                addon: addon, type: request.itemType, id: request.itemId
+            ) {
+                resolvedMeta = resolved
+                break
+            }
+        }
+
+        // TMDB-generated rows use a `tmdb:<id>` namespace and need an IMDb fallback.
+        // Crucially, this happens only after the originating addon had a chance to resolve
+        // its own ID.
+        if resolvedMeta == nil, let tmdbId = request.tmdbId {
             guard let imdbId = await TMDBClient.shared.imdbId(
                 tmdbId: tmdbId,
                 type: ContentType.from(request.itemType),
@@ -96,40 +131,28 @@ final class MetaDetailsViewModel {
                     : "TMDB has no IMDb id for this title, so no addon can describe it."
                 return
             }
+
             request.itemId = imdbId
-            request.addonBaseUrl = nil
+
+            for addon in candidates(for: imdbId) {
+                if let resolved = try? await client.fetchMeta(
+                    addon: addon, type: request.itemType, id: request.itemId
+                ) {
+                    resolvedMeta = resolved
+                    break
+                }
+            }
         }
 
-        // Prefer the addon the item came from, then any other addon advertising `meta`
-        // for this id — this is what makes third-party catalogs resolve through Cinemeta.
-        //
-        // `prefer_external_meta_addon_detail` inverts that: a dedicated metadata addon is
-        // asked first, and the catalog's own addon becomes the fallback. Viewers use this when
-        // their catalog addon returns thinner metadata than Cinemeta does.
-        let sourceAddon = request.addonBaseUrl.flatMap { addonStore.addon(withBaseUrl: $0) }
-        let others = addonStore.addonsProviding(
-            resource: "meta", type: request.itemType, id: request.itemId
-        ).filter { $0.baseUrl != sourceAddon?.baseUrl }
-
-        var candidates: [Addon] = []
-        if settings.layout.preferExternalMetaAddonDetail {
-            candidates = others
-            if let sourceAddon { candidates.append(sourceAddon) }
-        } else {
-            if let sourceAddon { candidates.append(sourceAddon) }
-            candidates.append(contentsOf: others)
-        }
-
-        guard !candidates.isEmpty else {
-            error = L10n.text("detail.no_addon", fallback: "No installed addon can describe this title.")
+        guard let resolved = resolvedMeta else {
+            error = L10n.text(
+                "detail.no_addon",
+                fallback: "No installed addon can describe this title."
+            )
             return
         }
 
-        for addon in candidates {
-            if let resolved = try? await client.fetchMeta(
-                addon: addon, type: request.itemType, id: request.itemId
-            ) {
-                meta = resolved
+        meta = resolved
                 selectedSeason = resolved.seasons.first ?? 1
                 // Enrichment runs after the meta is on screen so the hero never waits on it.
                 await withTaskGroup(of: Void.self) { group in
