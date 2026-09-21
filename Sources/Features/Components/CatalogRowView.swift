@@ -92,6 +92,7 @@ struct CatalogRowView: View {
                 // vertical room stops either from being clipped by the scroll view.
                 .padding(.vertical, NuvioTheme.spacing.sm)
             }
+            .scrollClipDisabled()
         }
     }
 
