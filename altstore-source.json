@@ -40,6 +40,16 @@
       ],
       "versions": [
         {
+          "version": "1.0.37",
+          "buildVersion": "39",
+          "date": "2026-09-21",
+          "localizedDescription": "Trois bugs signalés sur le dépôt, tous les trois réels. Merci à @raulXgarcia.\n\n**Les réglages avec `−` et `+` fonctionnent enfin.** Aucun d'entre eux ne répondait : taille des affiches, rayon des coins, délai d'expansion au focus, et les valeurs de lecture, debrid et suivi. Les deux boutons étaient à l'intérieur d'un autre bouton, et sur tvOS le contenu d'un bouton ne peut pas prendre le focus — la touche centrale ne tombait sur rien. Ils sont maintenant atteignables : descends sur la ligne, puis gauche/droite entre `−` et `+`.\n\n**Désactiver « Afficher les libellés » ne fait plus disparaître les catalogues.** Ce n'étaient pas les libellés : la zone des rails se calculait sur une affiche avec son titre, et en retirant les titres elle rétrécissait de 152 points — alors que la rangée du dessus, « Reprendre », garde les siens. La première rangée remplissait tout, les suivantes n'étaient jamais construites, et le focus n'avait nulle part où descendre. Les rails étaient là, simplement injoignables.\n\n**Cinemeta et OpenSubtitles ne reviennent plus.** Deux causes. La liste des add-ons ne vivait que dans un fichier de cache, que tvOS peut vider quand il veut — au redémarrage suivant l'app ne trouvait rien et réinstallait les deux add-ons par défaut par-dessus tes choix. Ta liste est maintenant stockée à part, durablement, et une purge du cache ne coûte plus qu'un rafraîchissement. Et pour ceux qui utilisent un compte Nuvio : la synchronisation réinstallait un add-on retiré juste avant de pouvoir transmettre la suppression. Retirer un add-on se propage désormais à tes autres appareils.\n\nChacun des trois a maintenant un test qui appuie vraiment sur les touches, et chacun a été vérifié en réintroduisant le bug pour s'assurer que le test le rattrape.",
+          "downloadURL": "https://github.com/vatax3/NuvioTVOS/releases/download/v1.0.37/Nuvio-1.0.37-tvOS-unsigned.ipa",
+          "size": 32019276,
+          "minOSVersion": "17.0",
+          "sha256": "2520bb42fd90869670f12a6d58ed1c86f9ba587b66bb3708cc73bb080751657e"
+        },
+        {
           "version": "1.0.36",
           "buildVersion": "38",
           "date": "2026-09-20",
@@ -286,11 +296,11 @@
         ],
         "privacy": {}
       },
-      "version": "1.0.36",
-      "versionDate": "2026-09-20",
-      "versionDescription": "Deux corrections, l'une d'elles silencieuse depuis un moment.\n\n**Retirer un titre de « Reprendre » tient enfin.** Si tu utilises un compte Nuvio avec la synchronisation, retirer un média de la liste Reprendre — ou le marquer comme non vu — était annulé à la synchronisation suivante : le serveur renvoyait la ligne, l'app la reprenait, le titre revenait. Les suppressions sont maintenant envoyées au compte avant chaque relecture. La bibliothèque avait déjà ce traitement ; la progression de lecture ne l'a jamais eu.\n\n**Les films ont un générique.** L'app ne demandait les marques de saut que pour les épisodes, donc un film n'en avait aucune. Désormais : une carte « Passer le générique » à la fin d'un film, et une scène post-générique n'est jamais sautée — si le film en a une, la carte propose d'y aller.\n\n**Les recommandations de fin de film arrivent au bon moment.** Elles se déclenchaient à 90 % de la durée. Un générique dure de 90 secondes à huit minutes, donc 90 % tombait en plein dedans sur un film long, et avant la dernière scène sur un film court. Elles suivent maintenant le générique lui-même, et attendent la fin d'une scène post-générique plutôt que de la recouvrir.\n\nAussi : le panneau Épisodes du lecteur distingue enfin épisode vu, commencé et jamais ouvert. Et le saut automatique du générique de fin est réglable, films uniquement, dans Réglages → Intégrations.",
-      "downloadURL": "https://github.com/vatax3/NuvioTVOS/releases/download/v1.0.36/Nuvio-1.0.36-tvOS-unsigned.ipa",
-      "size": 32013491,
+      "version": "1.0.37",
+      "versionDate": "2026-09-21",
+      "versionDescription": "Trois bugs signalés sur le dépôt, tous les trois réels. Merci à @raulXgarcia.\n\n**Les réglages avec `−` et `+` fonctionnent enfin.** Aucun d'entre eux ne répondait : taille des affiches, rayon des coins, délai d'expansion au focus, et les valeurs de lecture, debrid et suivi. Les deux boutons étaient à l'intérieur d'un autre bouton, et sur tvOS le contenu d'un bouton ne peut pas prendre le focus — la touche centrale ne tombait sur rien. Ils sont maintenant atteignables : descends sur la ligne, puis gauche/droite entre `−` et `+`.\n\n**Désactiver « Afficher les libellés » ne fait plus disparaître les catalogues.** Ce n'étaient pas les libellés : la zone des rails se calculait sur une affiche avec son titre, et en retirant les titres elle rétrécissait de 152 points — alors que la rangée du dessus, « Reprendre », garde les siens. La première rangée remplissait tout, les suivantes n'étaient jamais construites, et le focus n'avait nulle part où descendre. Les rails étaient là, simplement injoignables.\n\n**Cinemeta et OpenSubtitles ne reviennent plus.** Deux causes. La liste des add-ons ne vivait que dans un fichier de cache, que tvOS peut vider quand il veut — au redémarrage suivant l'app ne trouvait rien et réinstallait les deux add-ons par défaut par-dessus tes choix. Ta liste est maintenant stockée à part, durablement, et une purge du cache ne coûte plus qu'un rafraîchissement. Et pour ceux qui utilisent un compte Nuvio : la synchronisation réinstallait un add-on retiré juste avant de pouvoir transmettre la suppression. Retirer un add-on se propage désormais à tes autres appareils.\n\nChacun des trois a maintenant un test qui appuie vraiment sur les touches, et chacun a été vérifié en réintroduisant le bug pour s'assurer que le test le rattrape.",
+      "downloadURL": "https://github.com/vatax3/NuvioTVOS/releases/download/v1.0.37/Nuvio-1.0.37-tvOS-unsigned.ipa",
+      "size": 32019276,
       "minOSVersion": "17.0"
     }
   ],
