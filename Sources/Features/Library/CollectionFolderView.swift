@@ -143,7 +143,6 @@ struct CollectionFolderView: View {
             .padding(.top, NuvioTheme.layout.tvSafeVertical)
             .padding(.bottom, NuvioTheme.spacing.rail.tailPadding)
         }
-        .scrollClipDisabled()
         .background(background)
         .task {
             guard let folder else { return }
