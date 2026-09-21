@@ -231,6 +231,7 @@ struct HomeRailList: View {
                 ContinueWatchingRow(
                     entries: continueWatching,
                     style: settings.layout.continueWatchingCardStyle,
+                    hideVisuals: hiddenHomeRowIDs.contains(continueWatchingRowID),
                     onFocusItem: {
                         clearHiddenHomeRows()
                         focusedCollectionRowID = nil
@@ -241,19 +242,14 @@ struct HomeRailList: View {
                     },
                     cardFocus: $focusedCardKey
                 )
-                .mask {
-                    if hiddenHomeRowIDs.contains(continueWatchingRowID) {
-                        Color.clear
-                    } else {
-                        Color.white
-                    }
-                }
+
             }
 
             ForEach(pinnedCollections) { collection in
                 CollectionRail(
                     collection: collection,
                     focusBinding: $focusedCardKey,
+                    hideVisuals: hiddenHomeRowIDs.contains(collection.homeRowKey),
                     onFocusItem: {
                         hideRowsAround(collection: collection)
                         focusedCollectionRowID = collection.homeRowKey
@@ -261,13 +257,7 @@ struct HomeRailList: View {
                     }
                 )
                 .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
-                .mask {
-                    if hiddenHomeRowIDs.contains(collection.homeRowKey) {
-                        Color.clear
-                    } else {
-                        Color.white
-                    }
-                }
+
             }
 
             ForEach(displayRows) { entry in
@@ -279,6 +269,7 @@ struct HomeRailList: View {
                             subtitle: row.subtitle,
                             items: row.items,
                             isLoading: row.isLoading || row.isLoadingMore,
+                            hideVisuals: hiddenHomeRowIDs.contains(entry.id),
                             backdropExpandEnabled: allowsBackdropExpand,
                             onFocusItem: {
                                 clearHiddenHomeRows()
@@ -291,31 +282,20 @@ struct HomeRailList: View {
                             },
                             cardFocus: $focusedCardKey
                         )
-                        .mask {
-                            if hiddenHomeRowIDs.contains(entry.id) {
-                                Color.clear
-                            } else {
-                                Color.white
-                            }
-                        }
+
                     }
                 case .collection(let collection):
                     CollectionRail(
                         collection: collection,
                         focusBinding: $focusedCardKey,
+                        hideVisuals: hiddenHomeRowIDs.contains(collection.homeRowKey),
                         onFocusItem: {
                             hideRowsAround(collection: collection)
                             model.focusedItem = $0
                         }
                     )
                     .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
-                    .mask {
-                        if hiddenHomeRowIDs.contains(collection.homeRowKey) {
-                            Color.clear
-                        } else {
-                            Color.white
-                        }
-                    }
+
                 }
             }
         }

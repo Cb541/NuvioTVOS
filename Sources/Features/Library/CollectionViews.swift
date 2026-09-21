@@ -14,6 +14,8 @@ struct CollectionFolderCard: View {
     let folder: CollectionFolder
     let focusKey: String
     var focusBinding: FocusState<String?>.Binding?
+    /// Home can hide neighboring collection visuals without removing the focusable Button.
+    var hideVisuals: Bool = false
     /// Told when this card gains focus, so the screen around it can follow the cursor. Home
     /// uses it to drive the hero; the library grid has nothing above the rail and passes nil.
     var onFocus: (() -> Void)?
@@ -46,6 +48,7 @@ struct CollectionFolderCard: View {
             }
             .frame(width: size.width, height: size.height)
             .clipped()
+            .opacity(hideVisuals ? 0 : 1)
         }
         .buttonStyle(NuvioCardButtonStyle(cornerRadius: metrics.cornerRadius))
         .modifier(OptionalCardFocus(binding: focusBinding, key: focusKey))
@@ -95,6 +98,8 @@ struct CollectionRail: View {
 
     let collection: MediaCollection
     var focusBinding: FocusState<String?>.Binding?
+    /// Hides this rail's visuals while preserving its focusable cards.
+    var hideVisuals: Bool = false
     /// Home's hero follows the cursor onto a folder card the same way it follows a poster —
     /// see `CollectionFolder.heroPreview(in:)` for what a folder puts there.
     var onFocusItem: ((MetaPreview) -> Void)?
@@ -110,6 +115,7 @@ struct CollectionRail: View {
                     .foregroundStyle(colors.textSecondary)
                 Spacer(minLength: 0)
             }
+            .opacity(hideVisuals ? 0 : 1)
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -119,6 +125,7 @@ struct CollectionRail: View {
                             folder: folder,
                             focusKey: "collection-folder#\(collection.id)#\(folder.id)",
                             focusBinding: focusBinding,
+                            hideVisuals: hideVisuals,
                             onFocus: onFocusItem.map { report in
                                 { report(folder.heroPreview(in: collection)) }
                             }

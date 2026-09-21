@@ -12,6 +12,9 @@ struct ContentCard: View {
     /// Rails may suppress the expansion locally (the Grid layout does); the viewer's Layout
     /// preference still has the final say.
     var allowsBackdropExpand: Bool = true
+    /// Home can hide a neighboring row visually while keeping its focusable Button alive so
+    /// vertical D-pad travel can still enter that row.
+    var hideVisuals: Bool = false
     var onFocus: ((MetaPreview) -> Void)?
     /// `.focused()` only has an effect on the focusable view itself, so callers hand the
     /// binding down to the card rather than wrapping it from outside.
@@ -53,6 +56,7 @@ struct ContentCard: View {
                 action()
             }) {
                 artwork
+                    .opacity(hideVisuals ? 0 : 1)
             }
             .buttonStyle(NuvioCardButtonStyle(cornerRadius: cornerRadius))
             // Library and watched state from anywhere a poster is drawn, which is the gesture
@@ -78,6 +82,7 @@ struct ContentCard: View {
 
             if showLabels {
                 labels
+                    .opacity(hideVisuals ? 0 : 1)
                     .padding(.top, NuvioTheme.spacing.sm)
                     .frame(width: cardWidth, alignment: .leading)
             }
@@ -239,6 +244,8 @@ struct ContinueWatchingCard: View {
     var usesEpisodeThumbnail: Bool = true
     /// `blur_continue_watching_next_up`: hide the still for an episode not yet started.
     var blursNextUp: Bool = false
+    /// Keeps the continue-watching Button focusable while its visuals are temporarily hidden.
+    var hideVisuals: Bool = false
     var onFocus: ((MetaPreview) -> Void)?
     var focusBinding: FocusState<String?>.Binding?
     var action: () -> Void
@@ -314,6 +321,7 @@ struct ContinueWatchingCard: View {
                 .frame(width: cardWidth, height: cardHeight)
                 .background(colors.backgroundCard)
                 .cardDepth(.continueWatching, cornerRadius: tokens.cornerRadius)
+                .opacity(hideVisuals ? 0 : 1)
             }
             .buttonStyle(NuvioCardButtonStyle(cornerRadius: tokens.cornerRadius))
             // The rail this card sits in is the one the dialog exists for: a resume point could
