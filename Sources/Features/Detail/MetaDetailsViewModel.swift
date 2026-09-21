@@ -153,21 +153,23 @@ final class MetaDetailsViewModel {
         }
 
         meta = resolved
-                selectedSeason = resolved.seasons.first ?? 1
-                // Enrichment runs after the meta is on screen so the hero never waits on it.
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask { @MainActor in
-                        await self.loadMoreLikeThis(
-                            addonStore: addonStore, meta: resolved, settings: settings
-                        )
-                    }
-                    group.addTask { @MainActor in await self.enrich(meta: resolved, settings: settings) }
-                    group.addTask { @MainActor in await self.loadRatings(meta: resolved, settings: settings) }
-                }
-                return
+        selectedSeason = resolved.seasons.first ?? 1
+
+        // Enrichment runs after the meta is on screen so the hero never waits on it.
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in
+                await self.loadMoreLikeThis(
+                    addonStore: addonStore, meta: resolved, settings: settings
+                )
+            }
+            group.addTask { @MainActor in
+                await self.enrich(meta: resolved, settings: settings)
+            }
+            group.addTask { @MainActor in
+                await self.loadRatings(meta: resolved, settings: settings)
             }
         }
-        error = L10n.text("detail.load_failed", fallback: "Could not load details for this title.")
+        return
     }
 
     /// Fills gaps in the addon's metadata from TMDB, per the Metadata settings.
