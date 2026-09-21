@@ -14,6 +14,10 @@ struct NuvioApp: App {
     @State private var selectHolds = SelectHoldReporter()
 
     init() {
+        #if DEBUG
+        // Before any store is constructed: `PreferenceStore` hydrates in its own initialiser.
+        SettingsHarness.applyOverrides()
+        #endif
         NuvioFontRegistrar.registerIfNeeded()
     }
 

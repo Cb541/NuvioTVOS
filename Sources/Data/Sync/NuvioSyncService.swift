@@ -403,8 +403,13 @@ final class NuvioSyncService {
             table: "addons", filters: filters, as: [Failable<RemoteAddon>].self
         ).compactMap(\.value)
 
+        let pendingRemovals = addons.pendingAddonRemovals
         for entry in remoteAddons.sorted(by: { ($0.sort_order ?? 0) < ($1.sort_order ?? 0) }) {
             guard addons.addon(withBaseUrl: entry.url) == nil else { continue }
+            // An addon this device removed must not come back before the removal has been
+            // pushed — the push below is what carries it, because `sync_push_addons` replaces
+            // the account's list rather than merging into it.
+            guard !addons.hasPendingRemoval(entry.url) else { continue }
             _ = await addons.install(url: entry.url)
             if entry.enabled == false {
                 addons.setEnabled(false, baseUrl: StremioURL.canonicalize(entry.url))
@@ -424,6 +429,8 @@ final class NuvioSyncService {
         parameters["p_addons"] = .array(payload)
         parameters["p_profile_id"] = .int(profileId)
         try await NuvioBackend.shared.rpcVoid("sync_push_addons", parameters: parameters)
+        // The account now holds a list without them, so the queue has done its job.
+        if !pendingRemovals.isEmpty { addons.clearPendingAddonRemovals(pendingRemovals) }
     }
 
     // MARK: Plugins

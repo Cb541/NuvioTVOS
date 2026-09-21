@@ -36,8 +36,49 @@ struct SettingsCard<Content: View>: View {
 }
 
 /// A single settings row: label + optional detail, with the standard focus treatment.
-struct SettingsRow<Trailing: View>: View {
+/// The inside of a settings row: icon, title, subtitle, trailing accessory.
+///
+/// Separate from `SettingsRow` because not every row can be a button. On tvOS the contents of a
+/// `Button`'s label are **not** focusable — the button takes focus as one unit — so a row whose
+/// accessory is itself interactive has to be built without the outer button. See
+/// `SettingsStepperRow`.
+struct SettingsRowContent<Trailing: View>: View {
     @Environment(\.nuvioColors) private var colors
+    let title: String
+    var subtitle: String?
+    var systemImage: String?
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: NuvioTheme.spacing.lg) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: NuvioTheme.sizes.icons.md))
+                    .foregroundStyle(colors.textSecondary)
+                    .frame(width: NuvioTheme.sizes.icons.lg)
+            }
+            VStack(alignment: .leading, spacing: NuvioTheme.spacing.xxs) {
+                Text(title)
+                    .nuvioText(NuvioTextStyles.cardTitle)
+                    .foregroundStyle(colors.textPrimary)
+                    .multilineTextAlignment(.leading)
+                if let subtitle {
+                    Text(subtitle)
+                        .nuvioText(NuvioTextStyles.metadata)
+                        .foregroundStyle(colors.textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            Spacer(minLength: NuvioTheme.spacing.lg)
+            trailing
+        }
+        .padding(.horizontal, NuvioTheme.spacing.lg)
+        .frame(minHeight: NuvioTheme.sizes.settings.rowMinHeight)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct SettingsRow<Trailing: View>: View {
     let title: String
     var subtitle: String?
     var systemImage: String?
@@ -46,31 +87,9 @@ struct SettingsRow<Trailing: View>: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: NuvioTheme.spacing.lg) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.system(size: NuvioTheme.sizes.icons.md))
-                        .foregroundStyle(colors.textSecondary)
-                        .frame(width: NuvioTheme.sizes.icons.lg)
-                }
-                VStack(alignment: .leading, spacing: NuvioTheme.spacing.xxs) {
-                    Text(title)
-                        .nuvioText(NuvioTextStyles.cardTitle)
-                        .foregroundStyle(colors.textPrimary)
-                        .multilineTextAlignment(.leading)
-                    if let subtitle {
-                        Text(subtitle)
-                            .nuvioText(NuvioTextStyles.metadata)
-                            .foregroundStyle(colors.textSecondary)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-                Spacer(minLength: NuvioTheme.spacing.lg)
-                trailing
-            }
-            .padding(.horizontal, NuvioTheme.spacing.lg)
-            .frame(minHeight: NuvioTheme.sizes.settings.rowMinHeight)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            SettingsRowContent(
+                title: title, subtitle: subtitle, systemImage: systemImage, trailing: { trailing }
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(NuvioRowButtonStyle(cornerRadius: NuvioTheme.components.settings.secondaryCardRadius, scaleOnFocus: false))

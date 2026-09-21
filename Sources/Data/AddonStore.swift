@@ -4,6 +4,22 @@ import os
 
 /// Persisted addon record — the manifest is cached so the home screen can render
 /// catalogs on the very first frame instead of waiting on the network.
+/// The viewer's addon list, without the manifests.
+///
+/// `addons.json` holds the manifests too, so it is a network cache and lives in the purgeable
+/// one — which is correct for a manifest and was wrong for everything else in the same file.
+/// When tvOS reclaimed it, `AddonStore.init` found nothing and fell back to the two default
+/// addons: every install, removal, rename and disable the viewer had made was replaced wholesale
+/// by Cinemeta and OpenSubtitles, enabled. Reported as "keeps adding Cinemeta and Open Subtitles
+/// addons even after removing them", which is exactly what it looks like from the sofa.
+///
+/// Three short fields per addon, so a list in the hundreds still fits the durable budget.
+struct AddonChoice: Codable, Hashable {
+    var baseUrl: String
+    var enabled: Bool
+    var userSetName: String?
+}
+
 struct InstalledAddon: Codable, Hashable, Identifiable {
     var baseUrl: String
     var enabled: Bool = true
@@ -84,6 +100,11 @@ final class AddonStore {
     private let orderFile = JSONFileStore<[CatalogOrderEntry]>(
         filename: "catalog-order.json", scope: ProfileScope.addonStorage
     )
+    /// Durable, unlike the two above: this is the one thing in the addon store that cannot be
+    /// fetched again. See `AddonChoice`.
+    private let choicesFile = JSONFileStore<[AddonChoice]>(
+        filename: "addon-choices.json", scope: ProfileScope.addonStorage, durability: .critical
+    )
     private let client: StremioClient
     private let log = Logger(subsystem: "com.nuvio.tvos", category: "AddonStore")
 
@@ -95,10 +116,35 @@ final class AddonStore {
 
     init(client: StremioClient = .shared) {
         self.client = client
-        let stored = addonsFile.load()
-        installed = stored ?? Self.defaultAddonURLs.map { InstalledAddon(baseUrl: StremioURL.canonicalize($0)) }
+        let cached = addonsFile.load() ?? []
+
+        if let choices = choicesFile.load() {
+            // The durable list decides *which* addons exist; the purgeable one only supplies
+            // their manifests. A purged cache therefore costs a refresh, not the viewer's list.
+            var manifests: [String: InstalledAddon] = [:]
+            for record in cached {
+                manifests[StremioURL.canonicalize(record.baseUrl).lowercased()] = record
+            }
+            installed = choices.map { choice in
+                var record = InstalledAddon(baseUrl: choice.baseUrl, enabled: choice.enabled)
+                if let hit = manifests[StremioURL.canonicalize(choice.baseUrl).lowercased()] {
+                    record.manifest = hit.manifest
+                    record.fetchedAt = hit.fetchedAt
+                }
+                record.userSetName = choice.userSetName
+                return record
+            }
+        } else if !cached.isEmpty {
+            // Upgrading from a build that had no durable list. The cache is the only record
+            // there is, so adopt it and write the durable one from here on.
+            installed = cached
+        } else {
+            installed = Self.defaultAddonURLs.map { InstalledAddon(baseUrl: StremioURL.canonicalize($0)) }
+        }
+
         catalogOrder = orderFile.load() ?? []
-        if stored == nil { persistAddons() }
+        pendingAddonRemovals = removalFile.load() ?? []
+        persistAddons()
     }
 
     // MARK: - Derived state
@@ -218,6 +264,7 @@ final class AddonStore {
                 ))
             }
             lastError = nil
+            cancelRemoval(canonical)
             persistAddons()
             syncCatalogOrder()
             return .success(manifest)
@@ -232,8 +279,64 @@ final class AddonStore {
         let canonical = StremioURL.canonicalize(baseUrl)
         installed.removeAll { $0.baseUrl.caseInsensitiveCompare(canonical) == .orderedSame }
         catalogOrder.removeAll { StremioURL.canonicalize($0.addonBaseUrl).caseInsensitiveCompare(canonical) == .orderedSame }
+        recordRemoval(canonical)
         persistAddons()
         persistOrder()
+    }
+
+    #if DEBUG
+    /// Inserts a record without a manifest fetch, so the persistence rules can be tested without
+    /// a network. Not a shipping path: `install` is the only way an addon arrives for real.
+    func adoptForTesting(baseUrl: String, enabled: Bool) {
+        let canonical = StremioURL.canonicalize(baseUrl)
+        installed.removeAll { $0.baseUrl.caseInsensitiveCompare(canonical) == .orderedSame }
+        installed.append(InstalledAddon(baseUrl: canonical, enabled: enabled))
+        cancelRemoval(canonical)
+        persistAddons()
+    }
+    #endif
+
+    // MARK: - Removals awaiting the account
+
+    /// Addons removed on this device and not yet pushed.
+    ///
+    /// `syncAddons` pulls the account's list and installs anything it does not have locally, then
+    /// pushes the whole local list back. Without this queue the pull undoes the removal a moment
+    /// before the push would have carried it, and the addon is then pushed back up — so a removal
+    /// could not propagate from any device, only an addition could.
+    ///
+    /// There is no delete RPC to call and none is needed: `sync_push_addons` replaces the
+    /// account's list, so the push *is* the deletion once the pull stops resurrecting the row.
+    private(set) var pendingAddonRemovals: [String] = []
+
+    private let removalFile = JSONFileStore<[String]>(
+        filename: "addon-removals.json", scope: ProfileScope.addonStorage, durability: .critical
+    )
+
+    func hasPendingRemoval(_ baseUrl: String) -> Bool {
+        let canonical = StremioURL.canonicalize(baseUrl).lowercased()
+        return pendingAddonRemovals.contains { $0.lowercased() == canonical }
+    }
+
+    /// Called once the account has taken the list that no longer contains them.
+    func clearPendingAddonRemovals(_ urls: [String]) {
+        let cleared = Set(urls.map { $0.lowercased() })
+        pendingAddonRemovals.removeAll { cleared.contains($0.lowercased()) }
+        removalFile.save(pendingAddonRemovals)
+    }
+
+    private func recordRemoval(_ canonical: String) {
+        guard !hasPendingRemoval(canonical) else { return }
+        pendingAddonRemovals.append(canonical)
+        removalFile.save(pendingAddonRemovals)
+    }
+
+    /// Installing it again outranks a removal that has not been pushed yet.
+    private func cancelRemoval(_ canonical: String) {
+        guard hasPendingRemoval(canonical) else { return }
+        let target = canonical.lowercased()
+        pendingAddonRemovals.removeAll { $0.lowercased() == target }
+        removalFile.save(pendingAddonRemovals)
     }
 
     /// Renames an addon, or clears the rename when handed nothing.
@@ -369,6 +472,11 @@ final class AddonStore {
         persistOrder()
     }
 
-    private func persistAddons() { addonsFile.save(installed) }
+    private func persistAddons() {
+        addonsFile.save(installed)
+        choicesFile.save(installed.map {
+            AddonChoice(baseUrl: $0.baseUrl, enabled: $0.enabled, userSetName: $0.userSetName)
+        })
+    }
     private func persistOrder() { orderFile.save(catalogOrder) }
 }

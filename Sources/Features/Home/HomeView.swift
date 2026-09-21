@@ -290,15 +290,20 @@ struct ModernHomeContent: View {
     private func rowsViewportHeight(in total: CGFloat) -> CGFloat {
         let metrics = settings.posterMetrics
         let rowTitle = dp(26) + NuvioTheme.components.row.titleBottomSpacing
-        // Reserved for the tallest state the row can reach, not the one it starts in: a card
-        // expanded into its backdrop grows a metadata line and two lines of synopsis under it,
-        // and sizing for the collapsed label alone cut the synopsis off at the screen edge.
-        let labels: CGFloat
-        if metrics.showsLabels {
-            labels = metrics.backdropExpandEnabled ? dp(76) : dp(52)
-        } else {
-            labels = 0
-        }
+        // Reserved for the tallest state the *tallest* row can reach, not the one the first row
+        // starts in: a card expanded into its backdrop grows a metadata line and two lines of
+        // synopsis under it, and sizing for the collapsed label alone cut the synopsis off at
+        // the screen edge.
+        //
+        // Deliberately not conditional on `showsLabels`. It used to be, and turning poster
+        // labels off then shrank this viewport by 152 points while the row at the top of it —
+        // Continue Watching, whose cards carry their own title and progress line, and which that
+        // setting does not govern — stayed exactly as tall. The first row then filled the
+        // viewport, the `LazyVStack` below had no room to realise the next one, and because
+        // nothing was realised there was nothing for focus to move to: every catalog rail
+        // vanished and could not be scrolled back. Reported as "turning off show labels breaks
+        // catalogs — I can only see my watchlist".
+        let labels: CGFloat = metrics.backdropExpandEnabled ? dp(76) : dp(52)
         let oneRow = rowTitle + NuvioTheme.components.row.verticalPadding * 2 + metrics.height + labels
         return min(max(oneRow, total * 0.42), total * 0.62)
     }

@@ -298,6 +298,80 @@ stored durably rather than in the purgeable cache the library's queue uses — a
 queue resurrects exactly the rows it was holding. Flipping the library's own queue needs a
 migration read from its current location and is left as its own change.
 
+## Three reports from a viewer, and what they were really about
+
+Filed against our tree on 2026-09-17, all three by the same person within fifteen minutes. None
+was a parity gap; all three were ours. Fixed in 1.0.37.
+
+### "Unable to change + and - settings"
+
+> "Pressing the center button does nothing and left/right move around the menus."
+
+`SettingsStepperRow` handed its two step buttons to `SettingsRow` as a trailing accessory, and
+`SettingsRow` is a `Button` — **on tvOS the contents of a button's label are not focusable**. So
+neither step button could ever take the remote, and Select landed on the row's own `action: {}`.
+Every stepper in the app was inert: poster width, height, corner radius, the focus-expansion
+delay, and the playback, debrid and tracking values built on the decimal variant. **23 call sites
+across five files, shipped inert since the settings screens were written.**
+
+The fix takes the row content out of the button — `SettingsRowContent`, which `SettingsRow` now
+wraps and the steppers use bare. `SettingsPriorityListRow` already had the correct shape, which is
+what the steppers should have copied.
+
+This is the same lesson as the poster long press in 1.0.32, and it went unlearnt for five
+releases: **whether a nested control is reachable is a focus-engine question that exists only at
+runtime.** `SettingsWiringTests` checks that every setting is bound to a store. It cannot check
+that anything can be pressed. `SettingsStepperUITests` now does, with a real remote.
+
+### "Turning off show labels breaks catalogs"
+
+> "As soon as the setting is turned off I can only see my watchlist, all the catalogs are missing."
+
+Not the labels. `ModernHomeContent.rowsViewportHeight` sizes the rows region from one poster row
+and subtracted a 152-point label allowance when labels were off — while the row actually at the
+top, Continue Watching, carries its own title and progress line and does not shrink with that
+setting. The first row then filled the viewport, the `LazyVStack` below had no room to realise the
+next one, and because nothing was realised **there was nothing for focus to move to.** Every
+catalog rail existed and none could be reached.
+
+The allowance is now unconditional: it reserves for the tallest row the viewport can contain, not
+for the one configuration of the first row. `PosterLabelsUITests` walks Down from the rail in all
+four combinations of the two settings that shrink the viewport, and was checked to fail with the
+old arithmetic restored.
+
+Worth recording separately: the first version of that test asserted **presence** — it counted
+posters and passed while the screen was broken, because the rails were in the tree and simply
+unreachable. It also drove the setting with a plain `-layout.poster_labels_enabled 0` launch
+argument, which arrives as a string that `PreferenceStore`'s `as? Bool` rejects, so both arms ran
+with labels on and the test proved nothing twice over. Hence `SettingsHarness`, which writes real
+typed values, and an assertion on reachability rather than on existence.
+
+### "Keeps adding Cinemeta and Open Subtitles"
+
+> "…even after removing them in Nuvio, it also re-enables them if disabled."
+
+Two causes, independently sufficient.
+
+**The addon list lived only in a purgeable cache.** `addons.json` carries the manifests, so it is
+a network cache and sits in Caches — correct for a manifest, wrong for everything else in the same
+file. When tvOS reclaimed it, `AddonStore.init` found nothing and seeded the two defaults over
+whatever the viewer had chosen: installs, removals, renames and disables, all replaced at once.
+Split in 1.0.37: `addon-choices.json` is durable and decides *which* addons exist; the cache only
+supplies their manifests, and a purge now costs a refresh.
+
+**And `syncAddons` reinstalled what the viewer had just removed.** It pulls the account's list,
+installs anything missing locally, then pushes the whole local list — so the pull undid the
+removal a moment before the push would have carried it, and the addon was pushed back up. A
+removal could not propagate from any device; only an addition could. Same shape as the watch
+progress defect in 1.0.36 and the library one before it, now with the same remedy: a queue
+consulted by the pull and cleared by the push. No delete RPC is needed — `sync_push_addons`
+replaces the account's list, so the push *is* the deletion once the pull stops resurrecting it.
+
+**This is the third deletion-loses-to-pull bug in three releases.** The library had the fix and a
+comment explaining the hazard; watch progress and addons were each written without it. The pattern
+is now used in all three places in `NuvioSyncService`, and anything added to that file should be
+read against it.
+
 ## Findings this pass turned up in our own tree
 
 Both are **closed in 1.0.28**, and one of them was half wrong.

@@ -186,6 +186,15 @@ struct SettingsPriorityListRow<T: SettingsOption>: View {
 
 // MARK: - Numeric stepper
 
+/// A `-`/value/`+` row.
+///
+/// **Not** wrapped in `SettingsRow`, and that is the whole point. It used to be, with the two
+/// buttons handed in as the trailing accessory and `action: {}` on the row itself — and on tvOS
+/// the contents of a `Button`'s label are not focusable, so neither step button could ever be
+/// reached. Select hit the empty row action and did nothing; Left and Right skipped the row
+/// entirely and moved to the next focus section. Reported as "unable to change + and - settings",
+/// and it was true of **every** stepper in the app: poster width, height, corner radius, the
+/// expansion delay, and the playback, debrid and tracking values built on the decimal variant.
 struct SettingsStepperRow: View {
     @Environment(\.nuvioColors) private var colors
 
@@ -198,7 +207,7 @@ struct SettingsStepperRow: View {
     var format: (Int) -> String = { "\($0)" }
 
     var body: some View {
-        SettingsRow(
+        SettingsRowContent(
             title: title,
             subtitle: subtitle,
             systemImage: systemImage,
@@ -211,12 +220,12 @@ struct SettingsStepperRow: View {
                         .nuvioText(NuvioTextStyles.cardTitle)
                         .foregroundStyle(colors.textPrimary)
                         .frame(minWidth: dp(96))
+                        .accessibilityIdentifier("settings.stepper.value.\(title)")
                     stepButton("plus", enabled: value < range.upperBound) {
                         value = min(range.upperBound, value + step)
                     }
                 }
-            },
-            action: {}
+            }
         )
         .focusSection()
     }
@@ -246,7 +255,7 @@ struct SettingsDecimalStepperRow: View {
     var format: (Double) -> String = { String(format: "%.1f", $0) }
 
     var body: some View {
-        SettingsRow(
+        SettingsRowContent(
             title: title,
             subtitle: subtitle,
             trailing: {
@@ -258,12 +267,12 @@ struct SettingsDecimalStepperRow: View {
                         .nuvioText(NuvioTextStyles.cardTitle)
                         .foregroundStyle(colors.textPrimary)
                         .frame(minWidth: dp(96))
+                        .accessibilityIdentifier("settings.stepper.value.\(title)")
                     stepButton("plus", enabled: value < range.upperBound) {
                         value = min(range.upperBound, value + step)
                     }
                 }
-            },
-            action: {}
+            }
         )
         .focusSection()
     }
