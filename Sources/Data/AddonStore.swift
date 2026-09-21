@@ -255,6 +255,51 @@ final class AddonStore {
         persistAddons()
     }
 
+    /// Applies the account's addon ordering and enabled state while preserving
+    /// addons that only exist locally on this device.
+    func applyRemoteAddonState(
+        orderedBaseUrls: [String],
+        enabledByBaseUrl: [String: Bool]
+    ) {
+        var seen = Set<String>()
+        var reordered: [InstalledAddon] = []
+
+        for rawUrl in orderedBaseUrls {
+            let canonical = StremioURL.canonicalize(rawUrl)
+
+            guard !canonical.isEmpty,
+                  seen.insert(canonical).inserted,
+                  let index = installed.firstIndex(where: {
+                      StremioURL.canonicalize($0.baseUrl)
+                          .caseInsensitiveCompare(canonical) == .orderedSame
+                  })
+            else {
+                continue
+            }
+
+            var record = installed[index]
+
+            if let enabled = enabledByBaseUrl[canonical] {
+                record.enabled = enabled
+            }
+
+            reordered.append(record)
+        }
+
+        // Keep locally-installed addons that aren't on the account yet.
+        for record in installed {
+            let canonical = StremioURL.canonicalize(record.baseUrl)
+
+            if !seen.contains(canonical) {
+                reordered.append(record)
+            }
+        }
+
+        installed = reordered
+        persistAddons()
+        syncCatalogOrder()
+    }
+
     func move(from source: IndexSet, to destination: Int) {
         installed.move(fromOffsets: source, toOffset: destination)
         persistAddons()
@@ -277,6 +322,16 @@ final class AddonStore {
             catalogOrder.append(entry(for: key, enabled: enabled))
         }
         persistOrder()
+    }
+
+    /// Replaces the locally saved home-row order with the shared account snapshot,
+    /// then reconciles it against catalogs/collections that actually exist locally.
+    func applyRemoteHomeCatalogOrder(
+        _ entries: [CatalogOrderEntry],
+        collectionIds: [String]
+    ) {
+        catalogOrder = entries
+        syncCatalogOrder(collectionIds: collectionIds)
     }
 
     /// Moves one home row past its neighbour, catalogue or collection alike.

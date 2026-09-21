@@ -100,6 +100,13 @@ final class NuvioSyncService {
                 status = .syncing("Settings")
                 try await syncSettings(settings: settings, profileId: profileId)
 
+                status = .syncing("Home catalog")
+                await syncHomeCatalogSettings(
+                    addons: addons,
+                    collections: collections,
+                    profileId: profileId
+                )
+
                 status = .succeeded(Date())
             } catch {
                 log.error("sync failed: \(error.localizedDescription, privacy: .public)")
@@ -370,36 +377,177 @@ final class NuvioSyncService {
     // MARK: Addons
 
     private func syncAddons(addons: AddonStore, profileId: Int, ownerId: String?) async throws {
-        // Pulled with a table read, not an RPC — the schema has no pull function for addons and
-        // this is what the Android client does. RLS scopes the rows; the owner filter matters
-        // only for a device linked to somebody else's account.
+        // Pulled with a table read, matching the Android addon sync.
         var filters = ["profile_id": String(profileId)]
         if let ownerId { filters["user_id"] = ownerId }
+
         let remoteAddons = try await NuvioBackend.shared.select(
-            table: "addons", filters: filters, as: [Failable<RemoteAddon>].self
+            table: "addons",
+            filters: filters,
+            as: [Failable<RemoteAddon>].self
         ).compactMap(\.value)
 
-        for entry in remoteAddons.sorted(by: { ($0.sort_order ?? 0) < ($1.sort_order ?? 0) }) {
-            guard addons.addon(withBaseUrl: entry.url) == nil else { continue }
-            _ = await addons.install(url: entry.url)
-            if entry.enabled == false {
-                addons.setEnabled(false, baseUrl: StremioURL.canonicalize(entry.url))
-            }
+        let orderedRemoteAddons = remoteAddons.sorted {
+            ($0.sort_order ?? 0) < ($1.sort_order ?? 0)
         }
 
+        // Install anything the account has that this device does not.
+        for entry in orderedRemoteAddons {
+            guard addons.addon(withBaseUrl: entry.url) == nil else { continue }
+            _ = await addons.install(url: entry.url)
+        }
+
+        // The old implementation skipped existing addons, which meant a device could
+        // keep a different addon order/enabled state from the account.
+        if !orderedRemoteAddons.isEmpty {
+            var enabledByBaseUrl: [String: Bool] = [:]
+
+            for entry in orderedRemoteAddons {
+                enabledByBaseUrl[StremioURL.canonicalize(entry.url)] =
+                    entry.enabled ?? true
+            }
+
+            addons.applyRemoteAddonState(
+                orderedBaseUrls: orderedRemoteAddons.map(\.url),
+                enabledByBaseUrl: enabledByBaseUrl
+            )
+        }
+
+        // Keep the existing two-way addon push.
         let payload = addons.installed.enumerated().map { index, record -> AnyJSONValue in
             var object: [String: AnyJSONValue] = [
                 "url": .string(record.baseUrl),
                 "sort_order": .int(index),
                 "enabled": .bool(record.enabled)
             ]
-            if let name = record.manifest?.displayName.nilIfBlank { object["name"] = .string(name) }
+
+            if let name = record.manifest?.displayName.nilIfBlank {
+                object["name"] = .string(name)
+            }
+
             return .object(object)
         }
+
         var parameters = originParameters
         parameters["p_addons"] = .array(payload)
         parameters["p_profile_id"] = .int(profileId)
-        try await NuvioBackend.shared.rpcVoid("sync_push_addons", parameters: parameters)
+
+        try await NuvioBackend.shared.rpcVoid(
+            "sync_push_addons",
+            parameters: parameters
+        )
+    }
+
+    // MARK: Shared Home Catalog
+
+    /// Pulls the shared home-catalog snapshot used by the Android phone/TV clients
+    /// and applies its catalog visibility and ordering to tvOS.
+    private func syncHomeCatalogSettings(
+        addons: AddonStore,
+        collections: CollectionStore,
+        profileId: Int
+    ) async {
+        do {
+            let remote = try await NuvioBackend.shared.rpc(
+                "sync_pull_home_catalog_settings",
+                parameters: [
+                    "p_profile_id": .int(profileId),
+                    "p_platform": .string("home_catalog_shared")
+                ],
+                as: [Failable<RemoteHomeCatalogSettingsBlob>].self
+            ).compactMap(\.value).first
+
+            guard let settingsJSON = remote?.settings_json else {
+                return
+            }
+
+            let data = try JSONEncoder().encode(settingsJSON)
+
+            let payload = try JSONDecoder().decode(
+                RemoteHomeCatalogPayload.self,
+                from: data
+            )
+
+            guard !payload.items.isEmpty else {
+                return
+            }
+
+            let collectionIds = collections.collections.map(\.id)
+            let collectionSet = Set(collectionIds)
+
+            var entries: [CatalogOrderEntry] = []
+            var seen = Set<String>()
+
+            for item in payload.items.sorted(by: {
+                ($0.order ?? 0) < ($1.order ?? 0)
+            }) {
+                // Collection row.
+                if item.is_collection == true {
+                    guard let collectionId = item.collection_id?.nilIfBlank,
+                          collectionSet.contains(collectionId)
+                    else {
+                        continue
+                    }
+
+                    let entry = CatalogOrderEntry(
+                        collectionId: collectionId,
+                        enabled: item.enabled ?? true
+                    )
+
+                    guard seen.insert(entry.id).inserted else {
+                        continue
+                    }
+
+                    entries.append(entry)
+                    continue
+                }
+
+                // Normal addon catalog row.
+                guard let addonId = item.addon_id?.nilIfBlank,
+                      let type = item.type?.nilIfBlank,
+                      let catalogId = item.catalog_id?.nilIfBlank,
+                      let addon = addons.addons.first(where: {
+                          $0.id == addonId
+                      }),
+                      let catalog = addon.catalogs.first(where: {
+                          $0.id == catalogId &&
+                          $0.apiType.caseInsensitiveCompare(type) == .orderedSame
+                      })
+                else {
+                    continue
+                }
+
+                let entry = CatalogOrderEntry(
+                    addonBaseUrl: addon.baseUrl,
+                    catalogKey: catalog.descriptorKey,
+                    enabled: item.enabled ?? true
+                )
+
+                guard seen.insert(entry.id).inserted else {
+                    continue
+                }
+
+                entries.append(entry)
+            }
+
+            guard !entries.isEmpty else {
+                return
+            }
+
+            addons.applyRemoteHomeCatalogOrder(
+                entries,
+                collectionIds: collectionIds
+            )
+
+            log.info(
+                "Applied shared home catalog order: \(entries.count, privacy: .public) rows"
+            )
+        } catch {
+            // Home-catalog sync should not make the rest of account sync fail.
+            log.error(
+                "home catalog sync failed: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     // MARK: Plugins
@@ -557,6 +705,26 @@ private struct RemoteProfileLock: Decodable {
 
 private struct RemotePinVerification: Decodable {
     let unlocked: Bool?
+}
+
+private struct RemoteHomeCatalogSettingsBlob: Decodable {
+    let settings_json: [String: AnyJSON]?
+}
+
+private struct RemoteHomeCatalogPayload: Decodable {
+    let hide_unreleased_content: Bool?
+    let items: [RemoteHomeCatalogItem]
+}
+
+private struct RemoteHomeCatalogItem: Decodable {
+    let addon_id: String?
+    let type: String?
+    let catalog_id: String?
+    let enabled: Bool?
+    let order: Int?
+    let custom_title: String?
+    let is_collection: Bool?
+    let collection_id: String?
 }
 
 private struct RemoteAddon: Decodable {
