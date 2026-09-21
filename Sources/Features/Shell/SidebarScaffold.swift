@@ -122,17 +122,7 @@ struct SidebarScaffold<Content: View>: View {
                     \.shellLeadingInset,
                     isExpanded ? contentLeadingOffset : 0
                 )
-                // When the sidebar is visible it owns interaction. When hidden, the content
-                // receives the LEFT command and reveals the sidebar.
                 .disabled(isExpanded)
-                .onMoveCommand { direction in
-                    if direction == .left,
-                       isModernSidebar,
-                       settings.layout.sidebarCollapsedByDefault,
-                       !isExpanded {
-                        expand()
-                    }
-                }
 
             if shouldShowSidebar {
                 sidebar
@@ -159,14 +149,6 @@ struct SidebarScaffold<Content: View>: View {
         .onMoveCommand { direction in
             hasUserNavigated = true
             hasMovedSinceTabChange = true
-
-            // Native Siri Remote LEFT gesture from content reveals the hidden sidebar.
-            if direction == .left,
-               isModernSidebar,
-               settings.layout.sidebarCollapsedByDefault,
-               !isExpanded {
-                expand()
-            }
         }
         .onExitCommand {
             toggleFromBackButton()
