@@ -115,7 +115,7 @@ struct HomeRailList: View {
     var allowsBackdropExpand: Bool = true
 
     @FocusState private var focusedCardKey: String?
-    @State private var hiddenHomeRowID: String?
+    @State private var hiddenHomeRowIDs: Set<String> = []
 
     private let continueWatchingRowID = "__continue_watching__"
 
@@ -132,18 +132,27 @@ struct HomeRailList: View {
         return ids
     }
 
-    private func hideRowAbove(collection: MediaCollection) {
-        guard let index = homeRowIDs.firstIndex(of: collection.homeRowKey),
-              index > 0 else {
-            hiddenHomeRowID = nil
+    private func hideRowsAround(collection: MediaCollection) {
+        guard let index = homeRowIDs.firstIndex(of: collection.homeRowKey) else {
+            hiddenHomeRowIDs = []
             return
         }
 
-        hiddenHomeRowID = homeRowIDs[index - 1]
+        var hidden: Set<String> = []
+
+        if index > 0 {
+            hidden.insert(homeRowIDs[index - 1])
+        }
+
+        if index + 1 < homeRowIDs.count {
+            hidden.insert(homeRowIDs[index + 1])
+        }
+
+        hiddenHomeRowIDs = hidden
     }
 
-    private func clearHiddenHomeRow() {
-        hiddenHomeRowID = nil
+    private func clearHiddenHomeRows() {
+        hiddenHomeRowIDs = []
     }
     @State private var didClaimInitialFocus = false
 
@@ -221,7 +230,7 @@ struct HomeRailList: View {
                     entries: continueWatching,
                     style: settings.layout.continueWatchingCardStyle,
                     onFocusItem: {
-                        clearHiddenHomeRow()
+                        clearHiddenHomeRows()
                         model.focusedItem = $0
                     },
                     onSelect: { entry in
@@ -229,9 +238,9 @@ struct HomeRailList: View {
                     },
                     cardFocus: $focusedCardKey
                 )
-                .opacity(hiddenHomeRowID == continueWatchingRowID ? 0 : 1)
-                .disabled(hiddenHomeRowID == continueWatchingRowID)
-                .accessibilityHidden(hiddenHomeRowID == continueWatchingRowID)
+                .opacity(hiddenHomeRowIDs.contains(continueWatchingRowID) ? 0 : 1)
+                .disabled(hiddenHomeRowIDs.contains(continueWatchingRowID))
+                .accessibilityHidden(hiddenHomeRowIDs.contains(continueWatchingRowID))
             }
 
             ForEach(pinnedCollections) { collection in
@@ -239,13 +248,13 @@ struct HomeRailList: View {
                     collection: collection,
                     focusBinding: $focusedCardKey,
                     onFocusItem: {
-                        hideRowAbove(collection: collection)
+                        hideRowsAround(collection: collection)
                         model.focusedItem = $0
                     }
                 )
-                .opacity(hiddenHomeRowID == collection.homeRowKey ? 0 : 1)
-                .disabled(hiddenHomeRowID == collection.homeRowKey)
-                .accessibilityHidden(hiddenHomeRowID == collection.homeRowKey)
+                .opacity(hiddenHomeRowIDs.contains(collection.homeRowKey) ? 0 : 1)
+                .disabled(hiddenHomeRowIDs.contains(collection.homeRowKey))
+                .accessibilityHidden(hiddenHomeRowIDs.contains(collection.homeRowKey))
             }
 
             ForEach(displayRows) { entry in
@@ -259,7 +268,7 @@ struct HomeRailList: View {
                             isLoading: row.isLoading || row.isLoadingMore,
                             backdropExpandEnabled: allowsBackdropExpand,
                             onFocusItem: {
-                                clearHiddenHomeRow()
+                                clearHiddenHomeRows()
                                 model.focusedItem = $0
                             },
                             onSelect: { router.openDetail($0) },
@@ -269,22 +278,22 @@ struct HomeRailList: View {
                             },
                             cardFocus: $focusedCardKey
                         )
-                        .opacity(hiddenHomeRowID == entry.id ? 0 : 1)
-                        .disabled(hiddenHomeRowID == entry.id)
-                        .accessibilityHidden(hiddenHomeRowID == entry.id)
+                        .opacity(hiddenHomeRowIDs.contains(entry.id) ? 0 : 1)
+                        .disabled(hiddenHomeRowIDs.contains(entry.id))
+                        .accessibilityHidden(hiddenHomeRowIDs.contains(entry.id))
                     }
                 case .collection(let collection):
                     CollectionRail(
                         collection: collection,
                         focusBinding: $focusedCardKey,
                         onFocusItem: {
-                            hideRowAbove(collection: collection)
+                            hideRowsAround(collection: collection)
                             model.focusedItem = $0
                         }
                     )
-                    .opacity(hiddenHomeRowID == entry.id ? 0 : 1)
-                    .disabled(hiddenHomeRowID == entry.id)
-                    .accessibilityHidden(hiddenHomeRowID == entry.id)
+                    .opacity(hiddenHomeRowIDs.contains(entry.id) ? 0 : 1)
+                    .disabled(hiddenHomeRowIDs.contains(entry.id))
+                    .accessibilityHidden(hiddenHomeRowIDs.contains(entry.id))
                 }
             }
         }
