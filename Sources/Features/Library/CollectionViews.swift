@@ -12,12 +12,12 @@ struct CollectionFolderCard: View {
     @Environment(\.posterMetrics) private var metrics
 
     let folder: CollectionFolder
+    let focusKey: String
     var focusBinding: FocusState<String?>.Binding?
     /// Told when this card gains focus, so the screen around it can follow the cursor. Home
     /// uses it to drive the hero; the library grid has nothing above the rail and passes nil.
     var onFocus: (() -> Void)?
     let action: () -> Void
-    let focusKey: String
     private var size: CGSize { metrics.size(for: folder.tileShape) }
 
     var body: some View {
