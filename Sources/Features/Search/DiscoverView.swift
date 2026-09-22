@@ -146,6 +146,7 @@ struct DiscoverView: View {
 
                 DiscoverBrowser()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, NuvioTheme.layout.tvSafeVertical)
             .padding(.bottom, NuvioTheme.spacing.rail.tailPadding)
         }
@@ -174,6 +175,7 @@ struct DiscoverBrowser: View {
             genreChips
             grid
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear { model.ensureSelection(addons) }
         .onChange(of: model.selectedType) { _, _ in model.ensureSelection(addons) }
         .onChange(of: settings.catalogPresentation, initial: true) { _, presentation in
