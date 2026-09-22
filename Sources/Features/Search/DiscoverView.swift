@@ -247,7 +247,7 @@ struct DiscoverBrowser: View {
             )
             .frame(height: dp(300))
         } else {
-            LazyVGrid(columns: columns, alignment: .center, spacing: NuvioTheme.spacing.xl) {
+            CenteredLazyGrid(columns: columns, alignment: .center, spacing: NuvioTheme.spacing.xl) {
                 ForEach(Array(model.items.enumerated()), id: \.element.rowKey) { index, item in
                     ContentCard(
                         item: item,

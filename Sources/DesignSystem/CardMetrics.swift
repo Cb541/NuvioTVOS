@@ -60,7 +60,7 @@ struct PosterMetrics: Equatable {
         let count = max(2, Int((available + spacing) / (itemWidth + spacing)))
         return Array(
             repeating: GridItem(
-                .flexible(minimum: itemWidth, maximum: .infinity),
+                .fixed(itemWidth),
                 spacing: spacing,
                 alignment: .center
             ),

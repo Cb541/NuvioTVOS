@@ -239,7 +239,7 @@ struct CollectionFolderView: View {
                 .focusSection()
             }
 
-            LazyVGrid(columns: metrics.gridColumns(), alignment: .center, spacing: NuvioTheme.spacing.xl) {
+            CenteredLazyGrid(columns: metrics.gridColumns(), alignment: .center, spacing: NuvioTheme.spacing.xl) {
                 ForEach(gridItems, id: \.rowKey) { item in
                     ContentCard(item: item, allowsBackdropExpand: false) { open(item) }
                 }
