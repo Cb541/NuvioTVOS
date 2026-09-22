@@ -263,10 +263,11 @@ struct DiscoverBrowser: View {
             )
             .frame(height: dp(300))
         } else {
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
+            GeometryReader { proxy in
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
 
-                LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
                     ForEach(Array(model.items.enumerated()), id: \.element.rowKey) { index, item in
                         ContentCard(
                             item: item,
@@ -280,10 +281,15 @@ struct DiscoverBrowser: View {
                 }
                 .frame(width: gridContentWidth, alignment: .leading)
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
+                }
+                .frame(
+                    width: proxy.size.width,
+                    alignment: .center
+                )
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+            .frame(maxWidth: .infinity)
+
 
             if model.isLoadingMore {
                 ProgressView()
