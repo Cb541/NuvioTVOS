@@ -58,7 +58,14 @@ struct PosterMetrics: Equatable {
         let itemWidth = size(for: resolvedShape(for: .poster)).width
         let available = NuvioTheme.layout.screenWidth - horizontalInset * 2
         let count = max(2, Int((available + spacing) / (itemWidth + spacing)))
-        return Array(repeating: GridItem(.fixed(itemWidth), spacing: spacing), count: count)
+        return Array(
+            repeating: GridItem(
+                .flexible(minimum: itemWidth, maximum: .infinity),
+                spacing: spacing,
+                alignment: .center
+            ),
+            count: count
+        )
     }
 }
 
