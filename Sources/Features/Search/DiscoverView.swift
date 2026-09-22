@@ -146,7 +146,6 @@ struct DiscoverView: View {
 
                 DiscoverBrowser()
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, NuvioTheme.layout.tvSafeVertical)
             .padding(.bottom, NuvioTheme.spacing.rail.tailPadding)
         }
@@ -175,7 +174,6 @@ struct DiscoverBrowser: View {
             genreChips
             grid
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear { model.ensureSelection(addons) }
         .onChange(of: model.selectedType) { _, _ in model.ensureSelection(addons) }
         .onChange(of: settings.catalogPresentation, initial: true) { _, presentation in
@@ -196,7 +194,7 @@ struct DiscoverBrowser: View {
     }
 
     private var catalogChips: some View {
-        ChipRow(title: "Catalog") {
+        ChipRow(title: "Catalog", centerContent: true) {
             ForEach(model.catalogs(addons), id: \.catalog.descriptorKey) { entry in
                 NuvioChip(
                     label: "\(entry.catalog.name) · \(entry.addon.displayName)",
@@ -247,7 +245,7 @@ struct DiscoverBrowser: View {
             )
             .frame(height: dp(300))
         } else {
-            CenteredLazyGrid(columns: columns, alignment: .center, spacing: NuvioTheme.spacing.xl) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
                 ForEach(Array(model.items.enumerated()), id: \.element.rowKey) { index, item in
                     ContentCard(
                         item: item,
@@ -260,7 +258,6 @@ struct DiscoverBrowser: View {
                 }
             }
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
-            .frame(maxWidth: .infinity, alignment: .center)
 
             if model.isLoadingMore {
                 ProgressView()
@@ -276,6 +273,7 @@ struct DiscoverBrowser: View {
 struct ChipRow<Content: View>: View {
     @Environment(\.nuvioColors) private var colors
     let title: String
+    var centerContent: Bool = false
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -287,8 +285,23 @@ struct ChipRow<Content: View>: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: NuvioTheme.spacing.sm) {
+                    if centerContent {
+                        Spacer(minLength: 0)
+                    }
+
                     content
+
+                    if centerContent {
+                        Spacer(minLength: 0)
+                    }
                 }
+                .frame(
+                    minWidth: centerContent
+                        ? NuvioTheme.layout.screenWidth
+                            - (NuvioTheme.components.row.horizontalPadding * 2)
+                        : 0,
+                    alignment: .center
+                )
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
                 .padding(.vertical, NuvioTheme.spacing.xs)
             }
