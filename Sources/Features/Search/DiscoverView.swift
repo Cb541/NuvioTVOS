@@ -168,6 +168,22 @@ struct DiscoverBrowser: View {
 
     private var columns: [GridItem] { metrics.gridColumns() }
 
+    /// Exact width occupied by the fixed poster columns, including inter-column spacing.
+    /// Discover centers this width as a unit instead of pinning the columns to the leading edge.
+    private var gridItemWidth: CGFloat {
+        metrics.size(for: metrics.resolvedShape(for: .poster)).width
+    }
+
+    private var gridColumnSpacing: CGFloat {
+        NuvioTheme.components.row.itemSpacing
+    }
+
+    private var gridContentWidth: CGFloat {
+        guard !columns.isEmpty else { return 0 }
+        return CGFloat(columns.count) * gridItemWidth
+            + CGFloat(max(columns.count - 1, 0)) * gridColumnSpacing
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: NuvioTheme.spacing.xl) {
             typeChips
@@ -247,17 +263,24 @@ struct DiscoverBrowser: View {
             )
             .frame(height: dp(300))
         } else {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
-                ForEach(Array(model.items.enumerated()), id: \.element.rowKey) { index, item in
-                    ContentCard(
-                        item: item,
-                        allowsBackdropExpand: false,
-                        onFocus: { _ in
-                            if index >= model.items.count - 14 { model.loadMore() }
-                        },
-                        action: { router.openDetail(item) }
-                    )
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+
+                LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
+                    ForEach(Array(model.items.enumerated()), id: \.element.rowKey) { index, item in
+                        ContentCard(
+                            item: item,
+                            allowsBackdropExpand: false,
+                            onFocus: { _ in
+                                if index >= model.items.count - 14 { model.loadMore() }
+                            },
+                            action: { router.openDetail(item) }
+                        )
+                    }
                 }
+                .frame(width: gridContentWidth, alignment: .leading)
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
 
