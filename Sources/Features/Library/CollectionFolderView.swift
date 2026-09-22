@@ -108,6 +108,8 @@ struct CollectionFolderView: View {
 
     @State private var model = CollectionFolderViewModel()
     @State private var selectedTab = 0
+    @FocusState private var focusedGridItem: String?
+    @State private var lastFocusedGridItem: String?
 
     private var folder: CollectionFolder? {
         collections.folder(id: request.folderId)?.folder
@@ -241,17 +243,35 @@ struct CollectionFolderView: View {
 
             CenteredLazyGrid(columns: metrics.gridColumns(), alignment: .center, spacing: NuvioTheme.spacing.xl) {
                 ForEach(gridItems, id: \.rowKey) { item in
-                    ContentCard(item: item, allowsBackdropExpand: false) { open(item) }
+                    ContentCard(
+                        item: item,
+                        allowsBackdropExpand: false,
+                        onFocus: { focusedItem in
+                            lastFocusedGridItem = focusedItem.rowKey
+                        },
+                        focusBinding: $focusedGridItem,
+                        action: { open(item) }
+                    )
+                    .id(item.rowKey)
                 }
             }
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
             .frame(maxWidth: .infinity, alignment: .center)
 
             if let tab = visibleTab, tab.hasMore {
-                // The grid has no tail-focus signal of its own, so paging is a button rather than
-                // something that happens as you scroll into it.
+                // Keep the user's scroll position when a page is inserted above this button.
                 Button(L10n.text("collection.load_more", fallback: "Load more")) {
-                    Task { await model.loadMore(tab.id, addons: addons, settings: settings) }
+                    let restoreFocus = lastFocusedGridItem
+
+                    Task {
+                        await model.loadMore(tab.id, addons: addons, settings: settings)
+
+                        guard let restoreFocus else { return }
+
+                        await MainActor.run {
+                            focusedGridItem = restoreFocus
+                        }
+                    }
                 }
                 .buttonStyle(NuvioPillButtonStyle(emphasis: .secondary))
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
