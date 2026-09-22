@@ -182,7 +182,7 @@ struct DiscoverBrowser: View {
     }
 
     private var typeChips: some View {
-        ChipRow(title: "Type") {
+        ChipRow(title: "Type", centerContent: true) {
             ForEach(model.availableTypes(addons), id: \.self) { type in
                 NuvioChip(
                     label: type.displayName,
@@ -210,7 +210,7 @@ struct DiscoverBrowser: View {
     private var genreChips: some View {
         let genres = model.selection?.catalog.genreOptions ?? []
         if !genres.isEmpty {
-            ChipRow(title: "Genre") {
+            ChipRow(title: "Genre", centerContent: true) {
                 NuvioChip(
                     label: "All",
                     isSelected: model.selectedGenre == nil,
