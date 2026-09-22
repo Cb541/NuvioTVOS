@@ -282,6 +282,7 @@ struct DiscoverBrowser: View {
 
                 Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
 
             if model.isLoadingMore {
