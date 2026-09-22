@@ -38,7 +38,7 @@ struct SidebarScaffold<Content: View>: View {
         RootTab.allCases.filter { $0 != .discover || settings.layout.discoverLocation == .sidebar }
     }
 
-    /// `modern_sidebar_enabled` off means the classic always-open rail: no pill, no bloom.
+    /// `modern_sidebar_enabled` off means the classic always-open rail.
     private var isModernSidebar: Bool { settings.layout.modernSidebarEnabled }
 
     /// Where the content starts. Every destination gets the same gap, and the gap is at least
@@ -57,7 +57,15 @@ struct SidebarScaffold<Content: View>: View {
     /// over the column without moving a single focusable frame. See `bleedingLeading`.
     private var contentLeadingOffset: CGFloat {
         guard isModernSidebar else { return NuvioTheme.components.sidebar.expandedWidth }
+        guard isExpanded else { return 0 }
         return max(NuvioTheme.layout.sidebarContentOffset, railColumnWidth)
+    }
+
+    /// The modern sidebar disappears completely when collapsed. Classic mode remains visible.
+    private var shouldShowSidebar: Bool {
+        !isModernSidebar
+            || !settings.layout.sidebarCollapsedByDefault
+            || isExpanded
     }
 
     /// How far the pills sit from the physical left edge of the screen, and the only thing that
@@ -77,8 +85,8 @@ struct SidebarScaffold<Content: View>: View {
     /// is the one number to raise.
     private var railLeadingPadding: CGFloat { dp(30) }
 
-    /// Width reserved for the sidebar column: the collapsed pill and its own padding, nothing
-    /// more. The expanded panel deliberately overflows this rather than widening it.
+    /// Width of the sidebar's focus/layout column. When the modern sidebar is collapsed the
+    /// entire column disappears, so content can use the full screen.
     private var railColumnWidth: CGFloat {
         guard isModernSidebar else { return NuvioTheme.components.sidebar.expandedWidth }
         // The pill is the leading visual plus the dp(5) it is padded by on each side.
@@ -104,59 +112,47 @@ struct SidebarScaffold<Content: View>: View {
     }
 
     private var shellBody: some View {
-        HStack(spacing: 0) {
-            sidebar
-                .padding(.leading, railLeadingPadding)
-                .padding(.top, NuvioTheme.spacing.lg)
-                .padding(.bottom, NuvioTheme.spacing.md)
-                .padding(.trailing, NuvioTheme.spacing.sm)
-                .frame(width: railColumnWidth, alignment: isExpanded ? .topLeading : .leading)
-                // Full height *before* the focus section, which is the whole trick. A
-                // directional move only considers candidates whose frame overlaps the band it
-                // projects, and the pill sits at the very top — from a row further down the
-                // screen there is simply nothing to the left of it. A focus section spanning the
-                // full height is always in that band, and the engine redirects into it to the
-                // nearest focusable item, which is the pill.
-                .frame(maxHeight: .infinity, alignment: .top)
-                .focusSection()
-                // RIGHT is the way back to the content. It cannot be left to the focus engine:
-                // the content is disabled while the panel is open, so there is nothing to the
-                // right to move to until the panel closes.
-                .onMoveCommand { direction in
-                    if direction == .right, isExpanded { collapse() }
-                }
-                .zIndex(1)
-
+        ZStack(alignment: .leading) {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .focusSection()
-                // Without this the engine hands first focus to the sidebar, which would open
-                // the panel on launch. Android starts with the pill collapsed and content live.
                 .prefersDefaultFocus(in: shellFocus)
-                // `NuvioLayout.sidebarContentOffset` on Android: screens that start with a
-                // top-left title are nudged clear of the floating pill. The column already
-                // supplies part of that gap, so only the remainder is padded here.
-                .padding(.leading, contentLeadingOffset - railColumnWidth)
-                // What the column took, so a screen's backdrop can give it back. Nothing about
-                // the layout changes — see `fullBleedLeading`, which paints rather than moves.
-                .environment(\.shellLeadingInset, contentLeadingOffset)
-                // Android's `sidebarBlocksContentKeys`: while the panel is open the content
-                // stops taking input entirely. Without it the panel — which overlays the
-                // content rather than displacing it — competes with whatever sits underneath,
-                // so moving between destinations drops focus into the content and the panel
-                // collapses out from under the viewer.
+                .padding(.leading, isExpanded ? contentLeadingOffset - railColumnWidth : 0)
+                .environment(
+                    \.shellLeadingInset,
+                    isExpanded ? contentLeadingOffset : 0
+                )
                 .disabled(isExpanded)
+
+            if shouldShowSidebar {
+                sidebar
+                    .padding(.leading, railLeadingPadding)
+                    .padding(.top, NuvioTheme.spacing.lg)
+                    .padding(.bottom, NuvioTheme.spacing.md)
+                    .padding(.trailing, NuvioTheme.spacing.sm)
+                    .frame(
+                        width: railColumnWidth,
+                        alignment: isExpanded ? .topLeading : .leading
+                    )
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .focusSection()
+                    .onMoveCommand { direction in
+                        if direction == .right, isExpanded {
+                            collapse()
+                        }
+                    }
+                    .zIndex(1)
+            }
         }
         .background(colors.background)
         .focusScope(shellFocus)
-        .onMoveCommand { _ in
+        .onMoveCommand { direction in
             hasUserNavigated = true
             hasMovedSinceTabChange = true
         }
-        // Android's `BackHandler` on the root routes: back opens the drawer and puts focus on
-        // the current destination rather than leaving the screen. Without it the panel is only
-        // reachable by a directional move, which the Home hero can swallow.
-        .onExitCommand { toggleFromBackButton() }
+        .onExitCommand {
+            toggleFromBackButton()
+        }
         .onChange(of: focusedTab) { _, newValue in
             updateExpansion(focusedTab: newValue)
         }
@@ -166,13 +162,6 @@ struct SidebarScaffold<Content: View>: View {
         .onChange(of: isModernSidebar, initial: true) { _, _ in
             updateExpansion(focusedTab: focusedTab)
         }
-        // Switching destination swaps the whole content subtree. `collapse()` releases the
-        // sidebar's focus on the next tick, and if the incoming screen has not laid out
-        // anything focusable by then — which is every screen whose first row is waiting on a
-        // catalogue — tvOS drops focus entirely and never looks again. The remote then does
-        // nothing at all until the viewer stumbles back through the menu. Asking the focus
-        // engine to redo its default-focus pass, a few times while the screen fills in, is what
-        // makes a destination usable the moment it is chosen.
         .onChange(of: router.selectedTab, initial: true) { _, _ in
             hasMovedSinceTabChange = false
             reclaimContentFocus()
@@ -297,7 +286,7 @@ struct SidebarScaffold<Content: View>: View {
         .padding(.horizontal, isExpanded ? NuvioTheme.spacing.sm : 0)
         .padding(.vertical, isExpanded ? NuvioTheme.spacing.sm : 0)
         .frame(width: isExpanded ? tokens.expandedWidth : nil, alignment: .leading)
-        .frame(maxHeight: .infinity, alignment: isExpanded ? .top : .center)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background {
             if isExpanded {
                 panelBackground

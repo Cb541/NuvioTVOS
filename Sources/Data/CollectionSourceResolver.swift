@@ -29,19 +29,20 @@ enum CollectionSourceResolver {
     struct Page {
         var items: [MetaPreview] = []
         var unavailable: Unavailable?
-        /// False once a page comes back short, so a rail stops asking for more.
+        /// False once a page comes back empty, so a rail stops asking for more.
         var hasMore: Bool = false
     }
 
     static func items(
         for source: CollectionSource,
         page: Int,
+        skip: Int? = nil,
         addons: AddonStore,
         settings: AppSettings
     ) async -> Page {
         switch source {
         case .addon(let source):
-            return await addonItems(source, page: page, addons: addons)
+            return await addonItems(source, page: page, skip: skip, addons: addons)
         case .tmdb(let source):
             return await tmdbItems(source, page: page, settings: settings)
         case .trakt(let source):
@@ -54,6 +55,7 @@ enum CollectionSourceResolver {
     private static func addonItems(
         _ source: AddonCollectionSource,
         page: Int,
+        skip: Int?,
         addons: AddonStore
     ) async -> Page {
         // Android keys these by manifest id, and so does `Addon.id`, so the two apps agree on
@@ -62,18 +64,36 @@ enum CollectionSourceResolver {
             return Page(unavailable: .addonMissing(source.addonId))
         }
 
-        let pageSize = 100
+        let catalog = addon.catalogs.first {
+            $0.id == source.catalogId && $0.apiType == source.type
+        }
+        let declaredPageSize = catalog?.pageSize.flatMap { $0 > 0 ? $0 : nil }
+
         var extras: [(String, String)] = []
-        if let genre = source.genre?.nilIfBlank { extras.append(("genre", genre)) }
+        if let genre = source.genre?.nilIfBlank,
+           genre.caseInsensitiveCompare("none") != .orderedSame {
+            extras.append(("genre", genre))
+        }
+
+        let effectiveSkip = max(
+            0,
+            skip ?? ((page - 1) * (declaredPageSize ?? 20))
+        )
 
         let items = (try? await StremioClient.shared.fetchCatalog(
             addon: addon,
             type: source.type,
             catalogId: source.catalogId,
-            skip: max(0, page - 1) * pageSize,
+            skip: effectiveSkip,
             extraArgs: extras
         )) ?? []
-        return Page(items: items, hasMore: items.count >= pageSize)
+
+        // Stremio-style pagination follows the actual response size rather than the
+        // manifest's declared pageSize. A catalog may declare 50 while returning 20
+        // items per request, and those 20 still mean another page can be requested.
+        let hasMore = !items.isEmpty
+
+        return Page(items: items, hasMore: hasMore)
     }
 
     // MARK: TMDB

@@ -40,6 +40,7 @@
 		<string>vlc-x-callback</string>
 		<string>vlc</string>
 		<string>nplayer</string>
+        <string>senplayer</string>
 		<string>outplayer</string>
 	</array>
 	<key>NSAppTransportSecurity</key>

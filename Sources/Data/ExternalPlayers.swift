@@ -14,6 +14,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     case infuse
     case vlc
     case nplayer
+    case senplayer
     case outplayer
 
     var id: String { rawValue }
@@ -23,6 +24,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .infuse: return "Infuse"
         case .vlc: return "VLC"
         case .nplayer: return "nPlayer"
+        case .senplayer: return "SenPlayer"
         case .outplayer: return "Outplayer"
         }
     }
@@ -32,6 +34,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .infuse: return "Broad container and codec support, Firecore"
         case .vlc: return "Plays essentially anything, VideoLAN"
         case .nplayer: return "Hardware-accelerated, wide format support"
+        case .senplayer: return "Dolby Vision and wide-format external playback"
         case .outplayer: return "Lightweight MKV-capable player"
         }
     }
@@ -42,6 +45,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .infuse: return "infuse"
         case .vlc: return "vlc-x-callback"
         case .nplayer: return "nplayer"
+        case .senplayer: return "senplayer"
         case .outplayer: return "outplayer"
         }
     }
@@ -51,7 +55,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     var acceptsSubtitleURL: Bool {
         switch self {
         case .infuse, .vlc: return true
-        case .nplayer, .outplayer: return false
+        case .nplayer, .senplayer, .outplayer: return false
         }
     }
 
@@ -86,6 +90,10 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer:
             // nPlayer takes the raw URL appended to its scheme, not percent-encoded.
             return URL(string: "nplayer-\(stream)")
+        case .senplayer:
+            // SenPlayer uses the x-callback-url handoff and expects the stream
+            // as the percent-encoded `url` query parameter.
+            return URL(string: "senplayer://x-callback-url/play?url=\(encoded)")
         case .outplayer:
             return URL(string: "outplayer://\(stream)")
         }
@@ -111,6 +119,13 @@ enum ExternalPlayerLauncher {
     }
 
     static func isInstalled(_ player: ExternalPlayer) -> Bool {
+        // tvOS can report false for SenPlayer's custom URL scheme even when
+        // the app is installed. SenPlayer has a verified x-callback handoff,
+        // so keep it available in the external-player list.
+        if player == .senplayer {
+            return true
+        }
+
         guard let probe = URL(string: "\(player.probeScheme)://") else { return false }
         return UIApplication.shared.canOpenURL(probe)
     }
@@ -122,8 +137,14 @@ enum ExternalPlayerLauncher {
         title: String?,
         subtitleURL: String? = nil
     ) -> Bool {
-        guard let url = player.playbackURL(for: stream, title: title, subtitleURL: subtitleURL),
-              UIApplication.shared.canOpenURL(url) else { return false }
+        guard let url = player.playbackURL(for: stream, title: title, subtitleURL: subtitleURL) else {
+            return false
+        }
+
+        if player != .senplayer && !UIApplication.shared.canOpenURL(url) {
+            return false
+        }
+
         UIApplication.shared.open(url)
         return true
     }

@@ -115,6 +115,47 @@ struct HomeRailList: View {
     var allowsBackdropExpand: Bool = true
 
     @FocusState private var focusedCardKey: String?
+    @State private var hiddenHomeRowIDs: Set<String> = []
+    @State private var focusedCollectionRowID: String?
+
+    private let continueWatchingRowID = "__continue_watching__"
+
+    private var homeRowIDs: [String] {
+        var ids: [String] = []
+
+        if !continueWatching.isEmpty {
+            ids.append(continueWatchingRowID)
+        }
+
+        ids.append(contentsOf: pinnedCollections.map(\.homeRowKey))
+        ids.append(contentsOf: displayRows.map(\.id))
+
+        return ids
+    }
+
+    private func hideRowsAround(collection: MediaCollection) {
+        guard let index = homeRowIDs.firstIndex(of: collection.homeRowKey) else {
+            hiddenHomeRowIDs = []
+            return
+        }
+
+        var hidden: Set<String> = []
+
+        if index > 0 {
+            hidden.insert(homeRowIDs[index - 1])
+        }
+
+        if index + 1 < homeRowIDs.count {
+            hidden.insert(homeRowIDs[index + 1])
+        }
+
+        hiddenHomeRowIDs = hidden
+    }
+
+    private func clearHiddenHomeRows() {
+        hiddenHomeRowIDs = []
+    }
+
     @State private var didClaimInitialFocus = false
 
     private var continueWatching: [ContinueWatchingEntry] {
@@ -190,20 +231,33 @@ struct HomeRailList: View {
                 ContinueWatchingRow(
                     entries: continueWatching,
                     style: settings.layout.continueWatchingCardStyle,
-                    onFocusItem: { model.focusedItem = $0 },
+                    onFocusItem: {
+                        clearHiddenHomeRows()
+                        focusedCollectionRowID = nil
+                        model.focusedItem = $0
+                    },
                     onSelect: { entry in
                         router.openDetail(entry.preview)
                     },
-                    cardFocus: $focusedCardKey
+                    cardFocus: $focusedCardKey,
+                    hideVisuals: hiddenHomeRowIDs.contains(continueWatchingRowID)
                 )
+
             }
 
             ForEach(pinnedCollections) { collection in
                 CollectionRail(
                     collection: collection,
                     focusBinding: $focusedCardKey,
-                    onFocusItem: { model.focusedItem = $0 }
+                    hideVisuals: hiddenHomeRowIDs.contains(collection.homeRowKey),
+                    onFocusItem: {
+                        hideRowsAround(collection: collection)
+                        focusedCollectionRowID = collection.homeRowKey
+                        model.focusedItem = $0
+                    }
                 )
+                .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
+
             }
 
             ForEach(displayRows) { entry in
@@ -216,21 +270,32 @@ struct HomeRailList: View {
                             items: row.items,
                             isLoading: row.isLoading || row.isLoadingMore,
                             backdropExpandEnabled: allowsBackdropExpand,
-                            onFocusItem: { model.focusedItem = $0 },
+                            onFocusItem: {
+                                clearHiddenHomeRows()
+                                model.focusedItem = $0
+                            },
                             onSelect: { router.openDetail($0) },
                             onSeeAll: { router.push(.catalogSeeAll(row.request)) },
                             onReachEnd: {
                                 Task { await model.loadMore(row) }
                             },
-                            cardFocus: $focusedCardKey
+                            cardFocus: $focusedCardKey,
+                            hideVisuals: hiddenHomeRowIDs.contains(entry.id)
                         )
+
                     }
                 case .collection(let collection):
                     CollectionRail(
                         collection: collection,
                         focusBinding: $focusedCardKey,
-                        onFocusItem: { model.focusedItem = $0 }
+                        hideVisuals: hiddenHomeRowIDs.contains(collection.homeRowKey),
+                        onFocusItem: {
+                            hideRowsAround(collection: collection)
+                            model.focusedItem = $0
+                        }
                     )
+                    .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
+
                 }
             }
         }

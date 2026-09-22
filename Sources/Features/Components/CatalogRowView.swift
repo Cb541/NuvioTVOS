@@ -23,10 +23,13 @@ struct CatalogRowView: View {
     var onReachEnd: (() -> Void)?
     /// Lets the owning screen drive focus onto a specific card (used for launch focus).
     var cardFocus: FocusState<String?>.Binding?
+    /// Hides the row's card artwork while leaving its focusable controls alive.
+    var hideVisuals: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: NuvioTheme.components.row.titleBottomSpacing) {
             header
+                .opacity(hideVisuals ? 0 : 1)
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
 
             if items.isEmpty && isLoading {
@@ -66,6 +69,7 @@ struct CatalogRowView: View {
                             item: item,
                             isWatched: watchedIds.contains(item.rowKey),
                             allowsBackdropExpand: backdropExpandEnabled,
+                            hideVisuals: hideVisuals,
                             onFocus: { focused in
                                 onFocusItem?(focused)
                                 bringIntoView(focused.rowKey, using: scroller)
@@ -151,12 +155,14 @@ struct ContinueWatchingRow: View {
     var onFocusItem: ((MetaPreview) -> Void)?
     var onSelect: (ContinueWatchingEntry) -> Void
     var cardFocus: FocusState<String?>.Binding?
+    var hideVisuals: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: NuvioTheme.components.row.titleBottomSpacing) {
             Text(L10n.text("library.continue_watching", fallback: "Continue Watching"))
                 .nuvioText(NuvioTextStyles.sectionTitle)
                 .foregroundStyle(colors.textPrimary)
+                .opacity(hideVisuals ? 0 : 1)
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -167,6 +173,7 @@ struct ContinueWatchingRow: View {
                             style: style,
                             usesEpisodeThumbnail: settings.layout.useEpisodeThumbnailsInContinueWatching,
                             blursNextUp: settings.layout.blurContinueWatchingNextUp,
+                            hideVisuals: hideVisuals,
                             onFocus: onFocusItem,
                             focusBinding: cardFocus,
                             action: { onSelect(entry) }

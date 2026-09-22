@@ -175,6 +175,11 @@ final class AddonStore {
     /// so the store does not have to reach into the settings graph.
     var followsAddonOrder = false
 
+    /// When true, the shared account catalog snapshot is authoritative for Home ordering.
+    /// This is intentionally runtime-only; a fresh launch falls back to the normal local
+    /// preference until the next account sync pulls the shared snapshot again.
+    private var hasSharedHomeCatalogOrder = false
+
     /// All home-eligible catalogs across enabled addons, honouring the saved ordering.
     ///
     /// Derived from `orderedHomeRows` rather than ordering separately: two implementations of the
@@ -358,6 +363,51 @@ final class AddonStore {
         persistAddons()
     }
 
+    /// Applies the account's addon ordering and enabled state while preserving
+    /// addons that only exist locally on this device.
+    func applyRemoteAddonState(
+        orderedBaseUrls: [String],
+        enabledByBaseUrl: [String: Bool]
+    ) {
+        var seen = Set<String>()
+        var reordered: [InstalledAddon] = []
+
+        for rawUrl in orderedBaseUrls {
+            let canonical = StremioURL.canonicalize(rawUrl)
+
+            guard !canonical.isEmpty,
+                  seen.insert(canonical).inserted,
+                  let index = installed.firstIndex(where: {
+                      StremioURL.canonicalize($0.baseUrl)
+                          .caseInsensitiveCompare(canonical) == .orderedSame
+                  })
+            else {
+                continue
+            }
+
+            var record = installed[index]
+
+            if let enabled = enabledByBaseUrl[canonical] {
+                record.enabled = enabled
+            }
+
+            reordered.append(record)
+        }
+
+        // Keep locally-installed addons that aren't on the account yet.
+        for record in installed {
+            let canonical = StremioURL.canonicalize(record.baseUrl)
+
+            if !seen.contains(canonical) {
+                reordered.append(record)
+            }
+        }
+
+        installed = reordered
+        persistAddons()
+        syncCatalogOrder()
+    }
+
     func move(from source: IndexSet, to destination: Int) {
         installed.move(fromOffsets: source, toOffset: destination)
         persistAddons()
@@ -380,6 +430,17 @@ final class AddonStore {
             catalogOrder.append(entry(for: key, enabled: enabled))
         }
         persistOrder()
+    }
+
+    /// Replaces the locally saved home-row order with the shared account snapshot,
+    /// then reconciles it against catalogs/collections that actually exist locally.
+    func applyRemoteHomeCatalogOrder(
+        _ entries: [CatalogOrderEntry],
+        collectionIds: [String]
+    ) {
+        hasSharedHomeCatalogOrder = true
+        catalogOrder = entries
+        syncCatalogOrder(collectionIds: collectionIds)
     }
 
     /// Moves one home row past its neighbour, catalogue or collection alike.
@@ -416,16 +477,31 @@ final class AddonStore {
     /// appear twice, which is how upstream does it too.
     func orderedHomeRows(collectionIds: [String]) -> [HomeRowKey] {
         let disabled = Set(catalogOrder.filter { !$0.enabled }.map(\.rowKey))
+        let explicitlyEnabledCatalogs = Set(
+            catalogOrder
+                .filter { $0.collectionId == nil && $0.enabled }
+                .map(\.id)
+        )
+
         let catalogs = enabledAddons.flatMap { addon in
             addon.catalogs
-                .filter(\.showInHome)
-                .map { HomeRowOrder.Catalog(key: "\(addon.baseUrl)#\($0.descriptorKey)", owner: addon.baseUrl) }
+                .filter { catalog in
+                    let key = "\(addon.baseUrl)#\(catalog.descriptorKey)"
+                    return catalog.showInHome || explicitlyEnabledCatalogs.contains(key)
+                }
+                .map {
+                    HomeRowOrder.Catalog(
+                        key: "\(addon.baseUrl)#\($0.descriptorKey)",
+                        owner: addon.baseUrl
+                    )
+                }
         }
+
         return HomeRowOrder.merge(
             saved: catalogOrder.map(\.rowKey),
             catalogs: catalogs.filter { !disabled.contains(.catalog($0.key)) },
             collections: collectionIds.filter { !disabled.contains(.collection($0)) },
-            followsAddonOrder: followsAddonOrder
+            followsAddonOrder: followsAddonOrder && !hasSharedHomeCatalogOrder
         )
     }
 

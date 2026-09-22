@@ -14,6 +14,9 @@ final class CollectionFolderViewModel {
         var hasMore = true
         var unavailable: CollectionSourceResolver.Unavailable?
         var page = 0
+        /// Raw catalog offset used by addon sources. Unlike a fixed page size,
+        /// this follows whatever number of items the addon actually returned.
+        var sourceOffset = 0
 
         var id: String { source.id }
     }
@@ -58,14 +61,20 @@ final class CollectionFolderViewModel {
 
         tabs[index].isLoading = true
         let nextPage = tabs[index].page + 1
+        let sourceOffset = tabs[index].sourceOffset
         let page = await CollectionSourceResolver.items(
-            for: tabs[index].source, page: nextPage, addons: addons, settings: settings
+            for: tabs[index].source,
+            page: nextPage,
+            skip: sourceOffset,
+            addons: addons,
+            settings: settings
         )
 
         // The array may have been replaced while this was in flight.
         guard let current = tabs.firstIndex(where: { $0.id == tabId }) else { return }
         tabs[current].isLoading = false
         tabs[current].page = nextPage
+        tabs[current].sourceOffset += page.items.count
         tabs[current].unavailable = page.unavailable
         tabs[current].hasMore = page.hasMore
         var seen = Set(tabs[current].items.map(\.rowKey))
@@ -78,7 +87,10 @@ final class CollectionFolderViewModel {
         let match = addons.enabledAddons
             .first { $0.id == addon.addonId }?
             .catalogs.first { $0.id == addon.catalogId }
-        if let genre = addon.genre?.nilIfBlank { return genre }
+        if let genre = addon.genre?.nilIfBlank,
+           genre.caseInsensitiveCompare("none") != .orderedSame {
+            return genre
+        }
         return match?.name ?? addon.catalogId
     }
 }
@@ -195,6 +207,7 @@ struct CollectionFolderView: View {
                         items: tab.items,
                         isLoading: tab.isLoading,
                         showsSeeAll: false,
+                        backdropExpandEnabled: false,
                         onSelect: { open($0) },
                         onReachEnd: {
                             Task { await model.loadMore(tab.id, addons: addons, settings: settings) }
