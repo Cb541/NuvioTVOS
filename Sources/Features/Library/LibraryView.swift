@@ -117,7 +117,7 @@ struct LibraryView: View {
                 message: L10n.text("library.empty_body", fallback: "Open any title and press Add to Library to keep it here.")
             )
         } else {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
+            LazyVGrid(columns: columns, alignment: .center, spacing: NuvioTheme.spacing.xl) {
                 ForEach(savedItems, id: \.rowKey) { item in
                     ContentCard(
                         item: item,
@@ -127,6 +127,7 @@ struct LibraryView: View {
                 }
             }
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
@@ -204,7 +205,7 @@ struct CatalogSeeAllView: View {
                     )
                     .frame(height: dp(340))
                 } else {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
+                    LazyVGrid(columns: columns, alignment: .center, spacing: NuvioTheme.spacing.xl) {
                         ForEach(Array(visibleItems.enumerated()), id: \.element.rowKey) { index, item in
                             ContentCard(
                                 item: item,
@@ -217,6 +218,7 @@ struct CatalogSeeAllView: View {
                         }
                     }
                     .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                     if isLoading {
                         ProgressView()

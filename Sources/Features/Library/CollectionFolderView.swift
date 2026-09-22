@@ -239,12 +239,13 @@ struct CollectionFolderView: View {
                 .focusSection()
             }
 
-            LazyVGrid(columns: metrics.gridColumns(), alignment: .leading, spacing: NuvioTheme.spacing.xl) {
+            LazyVGrid(columns: metrics.gridColumns(), alignment: .center, spacing: NuvioTheme.spacing.xl) {
                 ForEach(gridItems, id: \.rowKey) { item in
                     ContentCard(item: item, allowsBackdropExpand: false) { open(item) }
                 }
             }
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+            .frame(maxWidth: .infinity, alignment: .center)
 
             if let tab = visibleTab, tab.hasMore {
                 // The grid has no tail-focus signal of its own, so paging is a button rather than

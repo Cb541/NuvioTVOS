@@ -258,6 +258,7 @@ struct DiscoverBrowser: View {
                 }
             }
             .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+            .frame(maxWidth: .infinity, alignment: .center)
 
             if model.isLoadingMore {
                 ProgressView()
