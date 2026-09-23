@@ -470,8 +470,21 @@ actor TMDBClient {
                 "\(base)/list/\(tmdbId)?api_key=\(apiKey)&language=\(language)&page=\(max(1, page))",
                 as: Response.self
             ) else { return [] }
-            // A list mixes films and series, so each row names its own type.
-            return (response.items ?? []).compactMap { $0.preview(type: type) }
+
+            // TMDB lists can contain both movies and TV series. Preserve each
+            // item's actual media_type instead of forcing the folder's type.
+            return (response.items ?? []).compactMap { item in
+                let itemType: ContentType
+                switch item.media_type?.lowercased() {
+                case "tv":
+                    itemType = .series
+                case "movie":
+                    itemType = .movie
+                default:
+                    itemType = type
+                }
+                return item.preview(type: itemType)
+            }
 
         case .collection:
             struct Response: Decodable { let parts: [TMDBMediaItem]? }
