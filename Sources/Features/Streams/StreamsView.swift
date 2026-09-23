@@ -94,6 +94,48 @@ final class StreamsViewModel {
     /// refresh is asked for *because* the viewer is comparing sources, and emptying the list
     /// throws away both the comparison and whatever the remote had focused. The new set replaces
     /// the old one when it arrives, in a single assignment. A first load has nothing to keep.
+    /// Publish one completed addon immediately so fast providers do not wait
+    /// behind a slower provider. The final pass in load() still rebuilds the
+    /// complete combined list, applies plugin results, and refreshes debrid state.
+    private func publishIncremental(
+        addon: Addon,
+        streams: [Stream],
+        settings: AppSettings
+    ) {
+        var parsed = attributes
+        for stream in streams {
+            parsed[stream.stableKey] = StreamAttributeParser.parse(stream)
+        }
+        attributes = parsed
+
+        let kept = StreamFilterEngine.apply(
+            to: streams,
+            attributes: parsed,
+            input: settings.streamFilterInput
+        )
+        filteredOutCount += streams.count - kept.count
+        guard !kept.isEmpty else { return }
+
+        let incoming = AddonStreams(
+            addonName: addon.displayName,
+            addonLogo: addon.logo,
+            streams: kept
+        )
+
+        var next = groups.filter { $0.addonName != addon.displayName }
+        next.append(incoming)
+        groups = next.sorted {
+            $0.addonName.localizedCaseInsensitiveCompare($1.addonName) == .orderedAscending
+        }
+
+        // Keep badges live for the rows already visible on screen.
+        applyBadgeRules(
+            to: groups.flatMap(\.streams),
+            attributes: parsed,
+            rules: settings.streamBadges.rules
+        )
+    }
+
     func load(
         request: StreamRequest,
         addonStore: AddonStore,
@@ -161,13 +203,23 @@ final class StreamsViewModel {
                     return (addon, inline ?? [])
                 }
             }
+
+            // Consume completed addon requests as they arrive. This keeps the
+            // existing concurrency model, but stops a slow addon from hiding
+            // results that have already arrived from AIOStreams/Comet.
             for await (addon, streams) in group {
                 guard let streams else {
                     failedAddons.append(addon.displayName)
                     continue
                 }
                 guard !streams.isEmpty else { continue }
+
                 collected.append((addon, streams))
+                publishIncremental(
+                    addon: addon,
+                    streams: streams,
+                    settings: settings
+                )
             }
         }
 
