@@ -14,6 +14,7 @@ final class MetaDetailsViewModel {
     private(set) var collection: (name: String, items: [MetaPreview])?
     private(set) var ratings: MDBListRatings?
     private(set) var enrichment: TMDBClient.Enrichment?
+    private(set) var seasonPosters: [Int: String] = [:]
 
     var selectedSeason: Int = 1
 
@@ -159,6 +160,7 @@ final class MetaDetailsViewModel {
         )
         guard let result else { return }
         enrichment = result
+        seasonPosters = result.seasonPosters
 
         // Only fill in what the addon left blank — the addon stays the source of truth.
         var merged = meta

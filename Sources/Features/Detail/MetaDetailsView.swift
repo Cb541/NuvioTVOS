@@ -432,6 +432,61 @@ struct MetaDetailsView: View {
 
 // MARK: - Episodes (port of EpisodesSection)
 
+private struct SeasonPosterCard: View {
+    @Environment(\.nuvioColors) private var colors
+
+    let season: Int
+    let posterURL: String
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: NuvioTheme.spacing.sm) {
+            ZStack(alignment: .bottomLeading) {
+                RemoteImage(url: posterURL, contentMode: .fill) {
+                    colors.background
+                }
+                .frame(width: dp(180), height: dp(270))
+                .clipped()
+
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.72)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+
+                Text("Season \(season)")
+                    .nuvioText(NuvioTextStyles.cardTitle)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, dp(10))
+                    .padding(.bottom, dp(10))
+            }
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: dp(14),
+                    style: .continuous
+                )
+            )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: dp(14),
+                    style: .continuous
+                )
+                .stroke(
+                    isSelected ? .tint : .clear,
+                    lineWidth: dp(3)
+                )
+            }
+            .overlay {
+                CardDepthOverlay(
+                    surface: .poster,
+                    cornerRadius: dp(14)
+                )
+            }
+        }
+        .frame(width: dp(180))
+    }
+}
+
 struct EpisodesSection: View {
     @Environment(\.nuvioColors) private var colors
     @Environment(LibraryStore.self) private var library
@@ -444,22 +499,70 @@ struct EpisodesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: NuvioTheme.spacing.lg) {
+            if model.seasons.count > 1 {
+                Text("Seasons")
+                    .nuvioText(NuvioTextStyles.sectionTitle)
+                    .foregroundStyle(colors.textPrimary)
+                    .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+
+                let completePosterSet = !model.seasons.isEmpty &&
+                    model.seasons.allSatisfy {
+                        model.seasonPosters[$0]?.nilIfBlank != nil
+                    }
+
+                if completePosterSet {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: NuvioTheme.components.row.itemSpacing) {
+                            ForEach(model.seasons, id: \.self) { season in
+                                if let posterURL = model.seasonPosters[season]?.nilIfBlank {
+                                    Button {
+                                        model.selectedSeason = season
+                                        Task {
+                                            await model.enrichEpisodes(
+                                                season: season,
+                                                settings: settings
+                                            )
+                                        }
+                                    } label: {
+                                        SeasonPosterCard(
+                                            season: season,
+                                            posterURL: posterURL,
+                                            isSelected: model.selectedSeason == season
+                                        )
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
+                    }
+                    .scrollClipDisabled()
+                    .focusSection()
+                } else {
+                    ChipRow(title: "Season") {
+                        ForEach(model.seasons, id: \.self) { season in
+                            NuvioChip(
+                                label: "Season \(season)",
+                                isSelected: model.selectedSeason == season,
+                                action: {
+                                    model.selectedSeason = season
+                                    Task {
+                                        await model.enrichEpisodes(
+                                            season: season,
+                                            settings: settings
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             Text("Episodes")
                 .nuvioText(NuvioTextStyles.sectionTitle)
                 .foregroundStyle(colors.textPrimary)
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
-
-            if model.seasons.count > 1 {
-                ChipRow(title: "Season") {
-                    ForEach(model.seasons, id: \.self) { season in
-                        NuvioChip(
-                            label: "Season \(season)",
-                            isSelected: model.selectedSeason == season,
-                            action: { model.selectedSeason = season }
-                        )
-                    }
-                }
-            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: NuvioTheme.components.row.itemSpacing) {

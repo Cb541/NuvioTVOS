@@ -208,6 +208,7 @@ actor TMDBClient {
         var certification: String?
         var trailerYouTubeIds: [String] = []
         var recommendations: [MetaPreview] = []
+        var seasonPosters: [Int: String] = [:]
         /// The franchise this film belongs to, when TMDB says it belongs to one. Carried on the
         /// detail payload we already fetch, so knowing costs nothing — only listing the other
         /// films does.
@@ -255,6 +256,18 @@ actor TMDBClient {
             "\(base)/\(mediaType)/\(tmdbId)?api_key=\(apiKey)&language=\(language)\(appendQuery)\(imageQuery)",
             as: TMDBDetails.self
         ) else { return enrichment }
+
+        if type == .series {
+            enrichment.seasonPosters = Dictionary(
+                (details.seasons ?? []).compactMap { season in
+                    guard let number = season.season_number,
+                          let path = season.poster_path?.nilIfBlank
+                    else { return nil }
+                    return (number, "\(Self.imageBase)/w500\(path)")
+                },
+                uniquingKeysWith: { first, _ in first }
+            )
+        }
 
         if options.useBasicInfo {
             enrichment.overview = details.overview?.nilIfBlank
@@ -701,6 +714,11 @@ private struct TMDBPerson: Decodable {
     let combined_credits: TMDBCombinedCredits?
 }
 
+private struct TMDBSeason: Decodable {
+    let season_number: Int?
+    let poster_path: String?
+}
+
 private struct TMDBDetails: Decodable {
     let overview: String?
     let vote_average: Double?
@@ -718,6 +736,7 @@ private struct TMDBDetails: Decodable {
     let content_ratings: TMDBContentRatings?
     let release_dates: TMDBReleaseDates?
     let belongs_to_collection: TMDBCollectionRef?
+    let seasons: [TMDBSeason]?
 
     func certification(for country: String) -> String? {
         if let rating = content_ratings?.results?
