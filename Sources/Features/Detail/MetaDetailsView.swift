@@ -474,6 +474,8 @@ private struct SeasonPosterCard: View {
             }
         }
         .frame(width: dp(180))
+        .scaleEffect(isSelected ? 1.10 : 1.0, anchor: .center)
+        .animation(NuvioMotion.quickTween, value: isSelected)
     }
 }
 
