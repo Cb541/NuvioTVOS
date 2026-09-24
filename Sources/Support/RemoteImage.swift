@@ -37,7 +37,7 @@ actor ImageLoader {
         if let hit = memory.object(forKey: url as NSURL) { return hit }
         if let existing = inFlight[url] { return await existing.value }
 
-        let task = Task<UIImage?, Never> { [session] in
+        let task = Task.detached(priority: .userInitiated) { [session] () -> UIImage? in
             guard let (data, response) = try? await session.data(from: url) else { return nil }
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 return nil
@@ -122,7 +122,7 @@ struct RemoteImage<Placeholder: View>: View {
         let loaded = await ImageLoader.shared.image(for: resolvedURL)
         guard !Task.isCancelled, resolvedURL == self.resolvedURL else { return }
         if let loaded {
-            withAnimation(NuvioMotion.quickTween) { image = loaded }
+            image = loaded
             loadedURL = resolvedURL
         } else {
             didFail = true
