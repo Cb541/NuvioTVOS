@@ -467,16 +467,6 @@ private struct SeasonPosterCard: View {
                 )
             )
             .overlay {
-                RoundedRectangle(
-                    cornerRadius: dp(14),
-                    style: .continuous
-                )
-                .stroke(
-                    isSelected ? Color.white : Color.clear,
-                    lineWidth: dp(3)
-                )
-            }
-            .overlay {
                 CardDepthOverlay(
                     surface: .poster,
                     cornerRadius: dp(14)
@@ -505,15 +495,17 @@ struct EpisodesSection: View {
                     .foregroundStyle(colors.textPrimary)
                     .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
 
-                let completePosterSet = !model.seasons.isEmpty &&
-                    model.seasons.allSatisfy {
-                        model.seasonPosters[$0]?.nilIfBlank != nil
-                    }
+                let posterSeasons = model.seasons.filter {
+                    model.seasonPosters[$0]?.nilIfBlank != nil
+                }
+                let missingPosterSeasons = model.seasons.filter {
+                    model.seasonPosters[$0]?.nilIfBlank == nil
+                }
 
-                if completePosterSet {
+                if !posterSeasons.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: NuvioTheme.components.row.itemSpacing) {
-                            ForEach(model.seasons, id: \.self) { season in
+                            ForEach(posterSeasons, id: \.self) { season in
                                 if let posterURL = model.seasonPosters[season]?.nilIfBlank {
                                     Button {
                                         model.selectedSeason = season
@@ -538,6 +530,26 @@ struct EpisodesSection: View {
                     }
                     .scrollClipDisabled()
                     .focusSection()
+
+                    if !missingPosterSeasons.isEmpty {
+                        ChipRow(title: "Other Seasons") {
+                            ForEach(missingPosterSeasons, id: \.self) { season in
+                                NuvioChip(
+                                    label: "Season \(season)",
+                                    isSelected: model.selectedSeason == season,
+                                    action: {
+                                        model.selectedSeason = season
+                                        Task {
+                                            await model.enrichEpisodes(
+                                                season: season,
+                                                settings: settings
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                 } else {
                     ChipRow(title: "Season") {
                         ForEach(model.seasons, id: \.self) { season in

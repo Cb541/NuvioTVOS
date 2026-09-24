@@ -297,6 +297,7 @@ struct AppExtrasDTO: Decodable {
     var directors: [AppExtrasCastMemberDTO]?
     var writers: [AppExtrasCastMemberDTO]?
     var certification: String?
+    var seasonPosters: [Int: String]?
 }
 
 struct MetaDTO: Decodable {
@@ -742,7 +743,8 @@ enum StremioMapper {
             behaviorHints: dto.behaviorHints.map {
                 MetaBehaviorHints(defaultVideoId: $0.defaultVideoId, hasScheduledVideos: $0.hasScheduledVideos)
             },
-            trailers: (dto.trailers ?? []).map(trailer)
+            trailers: (dto.trailers ?? []).map(trailer),
+            seasonPosters: extras?.seasonPosters
         )
     }
 

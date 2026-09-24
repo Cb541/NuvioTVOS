@@ -470,6 +470,7 @@ struct Meta: Codable, Hashable, Identifiable, Sendable {
     var rawPosterUrl: String?
     var behaviorHints: MetaBehaviorHints?
     var trailers: [MetaTrailer] = []
+    var seasonPosters: [Int: String]? = nil
 
     var apiType: String { type.apiString(fallback: rawType) }
     var backdropUrl: String? { background ?? landscapePoster ?? poster }

@@ -131,6 +131,7 @@ final class MetaDetailsViewModel {
                 addon: addon, type: request.itemType, id: request.itemId
             ) {
                 meta = resolved
+                seasonPosters = resolved.seasonPosters ?? [:]
                 selectedSeason = resolved.seasons.first ?? 1
                 // Enrichment runs after the meta is on screen so the hero never waits on it.
                 await withTaskGroup(of: Void.self) { group in
@@ -160,7 +161,15 @@ final class MetaDetailsViewModel {
         )
         guard let result else { return }
         enrichment = result
-        seasonPosters = result.seasonPosters
+
+        // Keep addon-provided season artwork and let TMDB fill only missing seasons.
+        var mergedSeasonPosters = seasonPosters
+        for (season, poster) in result.seasonPosters {
+            if mergedSeasonPosters[season]?.nilIfBlank == nil {
+                mergedSeasonPosters[season] = poster
+            }
+        }
+        seasonPosters = mergedSeasonPosters
 
         // Only fill in what the addon left blank — the addon stays the source of truth.
         var merged = meta
