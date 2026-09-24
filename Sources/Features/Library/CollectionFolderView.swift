@@ -134,8 +134,7 @@ struct CollectionFolderView: View {
     private var forcePortraitPosters: Bool {
         collections.collection(id: request.collectionId)?
             .title
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .caseInsensitiveCompare("Porn Collections") == .orderedSame
+            .localizedCaseInsensitiveContains("porn") == true
     }
 
     var body: some View {
