@@ -131,6 +131,13 @@ struct CollectionFolderView: View {
         (collections.collection(id: request.collectionId)?.showAllTab ?? true) && model.tabs.count > 1
     }
 
+    private var forcePortraitPosters: Bool {
+        collections.collection(id: request.collectionId)?
+            .title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare("Porn Collections") == .orderedSame
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: NuvioTheme.spacing.xl) {
@@ -214,6 +221,7 @@ struct CollectionFolderView: View {
                         isLoading: tab.isLoading,
                         showsSeeAll: false,
                         backdropExpandEnabled: false,
+                        forcePortrait: forcePortraitPosters,
                         onSelect: { open($0) },
                         onReachEnd: {
                             Task { await model.loadMore(tab.id, addons: addons, settings: settings) }
@@ -250,6 +258,7 @@ struct CollectionFolderView: View {
                     ContentCard(
                         item: item,
                         allowsBackdropExpand: false,
+                        forcePortrait: forcePortraitPosters,
                         onFocus: { focusedItem in
                             lastFocusedGridItem = focusedItem.rowKey
 

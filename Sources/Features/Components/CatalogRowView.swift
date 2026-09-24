@@ -25,6 +25,7 @@ struct CatalogRowView: View {
     var cardFocus: FocusState<String?>.Binding?
     /// Hides the row's card artwork while leaving its focusable controls alive.
     var hideVisuals: Bool = false
+    var forcePortrait: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: NuvioTheme.components.row.titleBottomSpacing) {
@@ -70,6 +71,7 @@ struct CatalogRowView: View {
                             isWatched: watchedIds.contains(item.rowKey),
                             allowsBackdropExpand: backdropExpandEnabled,
                             hideVisuals: hideVisuals,
+                            forcePortrait: forcePortrait,
                             onFocus: { focused in
                                 onFocusItem?(focused)
                                 bringIntoView(focused.rowKey, using: scroller)

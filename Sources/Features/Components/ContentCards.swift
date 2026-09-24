@@ -15,6 +15,7 @@ struct ContentCard: View {
     /// Home can hide a neighboring row visually while keeping its focusable Button alive so
     /// vertical D-pad travel can still enter that row.
     var hideVisuals: Bool = false
+    var forcePortrait: Bool = false
     var onFocus: ((MetaPreview) -> Void)?
     /// `.focused()` only has an effect on the focusable view itself, so callers hand the
     /// binding down to the card rather than wrapping it from outside.
@@ -32,7 +33,9 @@ struct ContentCard: View {
     private var showLabels: Bool { metrics.showsLabels }
     private var backdropExpandEnabled: Bool { allowsBackdropExpand && metrics.backdropExpandEnabled }
     private var cornerRadius: CGFloat { metrics.cornerRadius }
-    private var shape: PosterShape { metrics.resolvedShape(for: item.posterShape) }
+    private var shape: PosterShape {
+        forcePortrait ? .poster : metrics.resolvedShape(for: item.posterShape)
+    }
     private var baseSize: CGSize { metrics.size(for: shape) }
     private var baseHeight: CGFloat { baseSize.height }
 
