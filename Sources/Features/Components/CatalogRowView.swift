@@ -40,9 +40,6 @@ struct CatalogRowView: View {
         }
         .padding(.vertical, NuvioTheme.components.row.verticalPadding)
         .focusSection()
-        .task(id: items.map(\.rowKey).joined(separator: "|")) {
-            prefetchPosters(startingAt: 0, count: 8)
-        }
     }
 
     private var header: some View {
@@ -77,9 +74,6 @@ struct CatalogRowView: View {
                                 onFocusItem?(focused)
                                 bringIntoView(focused.rowKey, using: scroller)
 
-                                // Preload upcoming posters before they become visible.
-                                prefetchPosters(startingAt: index + 1, count: 8)
-
                                 if index >= items.count - 4 { onReachEnd?() }
                             },
                             focusBinding: cardFocus,
@@ -104,23 +98,6 @@ struct CatalogRowView: View {
                 .padding(.vertical, NuvioTheme.spacing.sm)
             }
             .scrollClipDisabled()
-        }
-    }
-
-    /// Starts downloading upcoming poster artwork so it is cached before the viewer reaches it.
-    private func prefetchPosters(startingAt start: Int, count: Int) {
-        guard start < items.count else { return }
-
-        let end = min(items.count, start + count)
-        let urls = items[start..<end].compactMap { item -> URL? in
-            guard let poster = item.poster?.nilIfBlank else { return nil }
-            return URL(string: poster)
-        }
-
-        guard !urls.isEmpty else { return }
-
-        Task {
-            await ImageLoader.shared.prefetch(urls)
         }
     }
 
