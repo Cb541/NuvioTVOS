@@ -84,15 +84,18 @@ final class CollectionFolderViewModel {
     /// An addon source carries no title of its own — the catalogue's own name is the honest one.
     private static func fallbackTitle(_ source: CollectionSource, index: Int, addons: AddonStore) -> String {
         guard case .addon(let addon) = source else { return "Source \(index + 1)" }
-        let match = addons.enabledAddons
+
+        let catalogName = addons.enabledAddons
             .first { $0.id == addon.addonId }?
-            .catalogs.first { $0.id == addon.catalogId }
+            .catalogs.first { $0.id == addon.catalogId }?
+            .name ?? addon.catalogId
+
         if let genre = addon.genre?.nilIfBlank,
-           genre.caseInsensitiveCompare("none") != .orderedSame,
-           genre.caseInsensitiveCompare("all") != .orderedSame {
-            return genre
+           genre.caseInsensitiveCompare("none") != .orderedSame {
+            return "\(catalogName) · \(genre)"
         }
-        return match?.name ?? addon.catalogId
+
+        return catalogName
     }
 }
 

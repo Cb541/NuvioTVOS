@@ -472,7 +472,7 @@ private struct SeasonPosterCard: View {
                     style: .continuous
                 )
                 .stroke(
-                    isSelected ? .tint : .clear,
+                    isSelected ? Color.white : Color.clear,
                     lineWidth: dp(3)
                 )
             }
