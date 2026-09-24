@@ -222,10 +222,10 @@ struct CollectionFolderView: View {
                         showsSeeAll: false,
                         backdropExpandEnabled: false,
                         onSelect: { open($0) },
-                        forcePortrait: forcePortraitPosters,
                         onReachEnd: {
                             Task { await model.loadMore(tab.id, addons: addons, settings: settings) }
-                        }
+                        },
+                        forcePortrait: forcePortraitPosters
                     )
                 }
             }
