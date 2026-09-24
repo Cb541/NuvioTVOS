@@ -434,6 +434,7 @@ struct MetaDetailsView: View {
 
 private struct SeasonPosterCard: View {
     @Environment(\.nuvioColors) private var colors
+    @Environment(\.isFocused) private var isFocused
 
     let season: Int
     let posterURL: String
@@ -474,8 +475,8 @@ private struct SeasonPosterCard: View {
             }
         }
         .frame(width: dp(180))
-        .scaleEffect(isSelected ? 1.05 : 1.0, anchor: .center)
-        .animation(NuvioMotion.quickTween, value: isSelected)
+        .scaleEffect(isSelected || isFocused ? 1.05 : 1.0, anchor: .center)
+        .animation(NuvioMotion.quickTween, value: isSelected || isFocused)
     }
 }
 
