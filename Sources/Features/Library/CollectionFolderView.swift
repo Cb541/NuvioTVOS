@@ -221,8 +221,8 @@ struct CollectionFolderView: View {
                         isLoading: tab.isLoading,
                         showsSeeAll: false,
                         backdropExpandEnabled: false,
-                        forcePortrait: forcePortraitPosters,
                         onSelect: { open($0) },
+                        forcePortrait: forcePortraitPosters,
                         onReachEnd: {
                             Task { await model.loadMore(tab.id, addons: addons, settings: settings) }
                         }
