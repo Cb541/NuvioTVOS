@@ -86,17 +86,12 @@ final class MetaDetailsViewModel {
         // Rows sourced from TMDB (recommendations, cast credits, network browse) carry a
         // `tmdb:<id>` id, which no Stremio addon can answer. Trade it for the IMDb id first.
         var request = request
-        if let tmdbId = request.tmdbId {
-            guard let imdbId = await TMDBClient.shared.imdbId(
-                tmdbId: tmdbId,
-                type: ContentType.from(request.itemType),
-                apiKey: settings.tmdb.apiKey
-            ) else {
-                error = settings.tmdb.apiKey.isEmpty
-                    ? L10n.text("detail.needs_tmdb", fallback: "This title came from TMDB — add a TMDB API key in Metadata settings to open it.")
-                    : "TMDB has no IMDb id for this title, so no addon can describe it."
-                return
-            }
+        if let tmdbId = request.tmdbId,
+           let imdbId = await TMDBClient.shared.imdbId(
+               tmdbId: tmdbId,
+               type: ContentType.from(request.itemType),
+               apiKey: settings.tmdb.apiKey
+           ) {
             request.itemId = imdbId
             request.addonBaseUrl = nil
         }
