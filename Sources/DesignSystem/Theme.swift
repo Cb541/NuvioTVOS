@@ -148,6 +148,8 @@ struct NuvioColorScheme {
     let surface: Color
     let surfaceVariant: Color
     let panel: Color
+    /// The normal card surface, intentionally unaffected by AMOLED surfaces.
+    let standardBackgroundCard: Color
     let overlay: Color
     let field: Color
     let menu: Color
@@ -219,6 +221,7 @@ struct NuvioColorScheme {
         surface = pureBlackSurfaces ? pureBlack : palette.surface
         surfaceVariant = pureBlackSurfaces ? pureBlack : palette.surfaceVariant
         panel = pureBlackSurfaces ? pureBlack : palette.panel
+        standardBackgroundCard = palette.backgroundCard
         overlay = palette.overlay
         field = pureBlackSurfaces ? pureBlack : palette.field
         menu = pureBlackSurfaces ? pureBlack : palette.menu

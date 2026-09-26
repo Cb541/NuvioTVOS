@@ -869,7 +869,7 @@ private struct CompanyCard: View {
                 }
             }
             .frame(width: dp(180), height: dp(90))
-            .background(colors.backgroundCard)
+            .background(colors.standardBackgroundCard)
         }
         .buttonStyle(NuvioCardButtonStyle(cornerRadius: NuvioTheme.radii.md))
         .disabled(company.tmdbId == nil)
