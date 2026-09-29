@@ -74,6 +74,7 @@ private extension UIImage {
 /// and a `failed` signal so heroes can fall back from a logo to a text title.
 struct RemoteImage<Placeholder: View>: View {
     let url: String?
+    var fallbackURL: String? = nil
     var contentMode: ContentMode = .fill
     var transition: Bool = true
     var onFailure: (() -> Void)?
@@ -86,6 +87,13 @@ struct RemoteImage<Placeholder: View>: View {
     private var resolvedURL: URL? {
         guard let url, let trimmed = url.nilIfBlank else { return nil }
         return URL(string: trimmed)
+    }
+
+    private var resolvedFallbackURL: URL? {
+        guard let fallbackURL, let trimmed = fallbackURL.nilIfBlank,
+              trimmed != url, let candidate = URL(string: trimmed), candidate != resolvedURL
+        else { return nil }
+        return candidate
     }
 
     var body: some View {
@@ -124,17 +132,29 @@ struct RemoteImage<Placeholder: View>: View {
         if let loaded {
             withAnimation(NuvioMotion.quickTween) { image = loaded }
             loadedURL = resolvedURL
-        } else {
-            didFail = true
-            onFailure?()
+            return
         }
+
+        if let fallback = resolvedFallbackURL,
+           let recovered = await ImageLoader.shared.image(for: fallback) {
+            guard !Task.isCancelled, resolvedURL == self.resolvedURL else { return }
+            withAnimation(NuvioMotion.quickTween) { image = recovered }
+            loadedURL = resolvedURL
+            return
+        }
+
+        didFail = true
+        onFailure?()
     }
 }
 
 extension RemoteImage where Placeholder == AnyView {
     /// Convenience initialiser using the standard poster placeholder surface.
-    init(url: String?, contentMode: ContentMode = .fill, background: Color) {
-        self.init(url: url, contentMode: contentMode, transition: true, onFailure: nil) {
+    init(url: String?, fallbackURL: String? = nil, contentMode: ContentMode = .fill, background: Color) {
+        self.init(
+            url: url, fallbackURL: fallbackURL, contentMode: contentMode,
+            transition: true, onFailure: nil
+        ) {
             AnyView(background)
         }
     }

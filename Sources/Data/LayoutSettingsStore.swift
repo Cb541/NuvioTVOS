@@ -97,6 +97,27 @@ final class LayoutSettingsStore: PreferenceStore {
         set { setBool("modern_landscape_posters_enabled", newValue) }
     }
 
+    // MARK: - Custom poster artwork
+
+    /// A URL the viewer wrote, with `{imdb_id}`-style placeholders.
+    var customPosterUrlPattern: String {
+        get { string("custom_poster_url_pattern", default: "") }
+        set { setString("custom_poster_url_pattern", newValue) }
+    }
+
+    /// Which screens the pattern applies to. Empty means all of them.
+    var customPosterEnabledScreens: [String] {
+        get { stringList("custom_poster_enabled_screens") }
+        set { setStringList("custom_poster_enabled_screens", newValue) }
+    }
+
+    func customPosterPattern(for screen: CustomPosterScreen) -> String {
+        let pattern = customPosterUrlPattern
+        guard !pattern.isEmpty else { return "" }
+        return CustomPosterScreen.from(keys: customPosterEnabledScreens).contains(screen)
+            ? pattern : ""
+    }
+
     // MARK: - Focused poster expansion
 
     var focusedPosterBackdropExpandEnabled: Bool {

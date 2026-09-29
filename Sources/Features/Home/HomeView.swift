@@ -242,6 +242,7 @@ struct HomeRailList: View {
                     cardFocus: $focusedCardKey,
                     hideVisuals: hiddenHomeRowIDs.contains(continueWatchingRowID)
                 )
+                .customPosterScreen(.continueWatching, settings: settings)
 
             }
 
@@ -256,6 +257,7 @@ struct HomeRailList: View {
                         model.focusedItem = $0
                     }
                 )
+                .customPosterScreen(.collections, settings: settings)
                 .offset(y: focusedCollectionRowID == collection.homeRowKey ? 35 : 0)
 
             }
@@ -299,6 +301,9 @@ struct HomeRailList: View {
                 }
             }
         }
+        // The catalog rails. The two above override this for their own screens; an environment
+        // value set closer to the leaf wins, so the order of these two modifiers is not a race.
+        .customPosterScreen(.home, settings: settings)
         // Claim focus for the content the moment there is a card to hold it. Without this the
         // sidebar pill — the only focusable view while the catalogs load — keeps focus and the
         // panel stays bloomed open, which is not how the app starts on Android.

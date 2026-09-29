@@ -5,6 +5,7 @@ import SwiftUI
 struct ContentCard: View {
     @Environment(\.nuvioColors) private var colors
     @Environment(\.posterMetrics) private var metrics
+    @Environment(\.customPosterPattern) private var posterPattern
     @Environment(Router.self) private var router
 
     let item: MetaPreview
@@ -30,6 +31,10 @@ struct ContentCard: View {
     @State private var logoFailed = false
     @State private var expandTask: Task<Void, Never>?
 
+    private var artworkItem: MetaPreview {
+        item.withCustomPoster(pattern: posterPattern)
+    }
+
     private var showLabels: Bool { metrics.showsLabels }
     private var backdropExpandEnabled: Bool { allowsBackdropExpand && metrics.backdropExpandEnabled }
     private var cornerRadius: CGFloat { metrics.cornerRadius }
@@ -44,9 +49,14 @@ struct ContentCard: View {
     /// A landscape rail already shows the backdrop, so it never falls back to the poster.
     private var imageURL: String? {
         if isExpanded || shape == .landscape {
-            return item.backdropUrl ?? item.poster
+            return artworkItem.backdropUrl ?? artworkItem.poster
         }
-        return item.poster
+        return artworkItem.poster
+    }
+
+    private var artworkFallbackURL: String? {
+        guard posterPattern.isEmpty == false else { return nil }
+        return artworkItem.rawPosterUrl
     }
 
     var body: some View {
@@ -99,7 +109,7 @@ struct ContentCard: View {
 
     private var artwork: some View {
         ZStack(alignment: .topTrailing) {
-            RemoteImage(url: imageURL, contentMode: .fill) {
+            RemoteImage(url: imageURL, fallbackURL: artworkFallbackURL, contentMode: .fill) {
                 PosterPlaceholder()
             }
             .frame(width: cardWidth, height: baseHeight)
@@ -239,6 +249,7 @@ struct ContentCard: View {
 struct ContinueWatchingCard: View {
     @Environment(\.nuvioColors) private var colors
     @Environment(\.posterMetrics) private var metrics
+    @Environment(\.customPosterPattern) private var posterPattern
     @Environment(Router.self) private var router
 
     let entry: ContinueWatchingEntry
@@ -266,13 +277,17 @@ struct ContinueWatchingCard: View {
         style == .landscape ? tokens.height : metrics.height
     }
 
+    private var artworkPreview: MetaPreview {
+        entry.preview.withCustomPoster(pattern: posterPattern)
+    }
+
     private var artworkURL: String? {
         if usesEpisodeThumbnail, let thumbnail = entry.episodeThumbnail?.nilIfBlank {
             return thumbnail
         }
         return style == .landscape
-            ? (entry.preview.backdropUrl ?? entry.preview.poster)
-            : (entry.preview.poster ?? entry.preview.backdropUrl)
+            ? (artworkPreview.backdropUrl ?? artworkPreview.poster)
+            : (artworkPreview.poster ?? artworkPreview.backdropUrl)
     }
 
     /// Only blur what the viewer has not begun — a resumed episode is not a spoiler.
@@ -288,7 +303,11 @@ struct ContinueWatchingCard: View {
                 action()
             }) {
                 ZStack(alignment: .bottom) {
-                    RemoteImage(url: artworkURL, contentMode: .fill) {
+                    RemoteImage(
+                        url: artworkURL,
+                        fallbackURL: posterPattern.isEmpty ? nil : artworkPreview.rawPosterUrl,
+                        contentMode: .fill
+                    ) {
                         PosterPlaceholder()
                     }
                     .frame(width: cardWidth, height: cardHeight)

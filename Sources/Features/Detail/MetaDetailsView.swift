@@ -44,6 +44,7 @@ struct MetaDetailsView: View {
         }
         .ignoresSafeArea()
         .background(colors.background)
+        .customPosterScreen(.details, settings: settings)
         .task { await model.load(request: request, addonStore: addons, settings: settings) }
         // The episode list is what lets Continue Watching offer the *next* episode once one is
         // finished, and the rail is drawn before any addon could answer. Cached here rather than

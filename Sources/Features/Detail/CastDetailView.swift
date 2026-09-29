@@ -13,6 +13,11 @@ struct CastDetailView: View {
     @State private var model = CastDetailViewModel()
 
     var body: some View {
+    // A person's credits are part of the detail surface, which is the screen key they share.
+        posterScopedContent.customPosterScreen(.details, settings: settings)
+    }
+
+    @ViewBuilder private var posterScopedContent: some View {
         NuvioScreenBackground {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: NuvioTheme.spacing.xxl) {
@@ -174,7 +179,7 @@ struct TMDBBrowseView: View {
                         )
                         .frame(height: dp(320))
                     } else {
-                        CenteredLazyGrid(columns: columns, alignment: .center, spacing: NuvioTheme.spacing.xl) {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: NuvioTheme.spacing.xl) {
                             ForEach(Array(model.items.enumerated()), id: \.element.rowKey) { index, item in
                                 ContentCard(
                                     item: item,

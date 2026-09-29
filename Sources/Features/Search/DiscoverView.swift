@@ -185,6 +185,10 @@ struct DiscoverBrowser: View {
     }
 
     var body: some View {
+        posterScopedContent.customPosterScreen(.home, settings: settings)
+    }
+
+    @ViewBuilder private var posterScopedContent: some View {
         VStack(alignment: .leading, spacing: NuvioTheme.spacing.xl) {
             typeChips
             catalogChips
