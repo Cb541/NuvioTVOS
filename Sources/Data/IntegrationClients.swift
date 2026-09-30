@@ -1858,19 +1858,31 @@ actor SkipIntroClient {
     private nonisolated static func simklRedirect(
         imdbId: String, clientId: String
     ) async -> SimklIdResolution.Redirect? {
-        guard let url = URL(
-            string: "https://api.simkl.com/redirect?to=simkl&imdb=\(imdbId)&client_id=\(clientId)"
-        ) else { return nil }
-        let session = URLSession(
-            configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil
-        )
-        defer { session.finishTasksAndInvalidate() }
-        guard let (_, response) = try? await session.data(from: url),
-              let http = response as? HTTPURLResponse,
-              let location = http.value(forHTTPHeaderField: "Location")
-        else { return nil }
-        return SimklIdResolution.parseRedirect(location: location)
+        await simklRedirectLookup(imdbId: imdbId, clientId: clientId)
     }
+}
+
+/// Resolves an IMDb id to the Simkl type/id pair without following Simkl's HTTP redirect.
+func simklRedirectLookup(
+    imdbId: String, clientId: String
+) async -> SimklIdResolution.Redirect? {
+    guard let url = URL(
+        string: "https://api.simkl.com/redirect?to=simkl&imdb=\(imdbId)&client_id=\(clientId)"
+    ) else { return nil }
+
+    let session = URLSession(
+        configuration: .ephemeral,
+        delegate: NoRedirectDelegate(),
+        delegateQueue: nil
+    )
+    defer { session.finishTasksAndInvalidate() }
+
+    guard let (_, response) = try? await session.data(from: url),
+          let http = response as? HTTPURLResponse,
+          let location = http.value(forHTTPHeaderField: "Location")
+    else { return nil }
+
+    return SimklIdResolution.parseRedirect(location: location)
 }
 
 /// Stops `URLSession` following a redirect, so the `Location` header survives to be read.
@@ -1900,6 +1912,11 @@ actor SimklClient {
     static let shared = SimklClient()
     private let base = "https://api.simkl.com"
     private let log = Logger(subsystem: "com.nuvio.tvos", category: "Simkl")
+
+    private static let relatedLimit = 20
+    private static let relatedCacheTTL: TimeInterval = 10 * 60
+    private var relatedCache: [String: (items: [MetaPreview], updatedAt: Date)] = [:]
+    private var relatedRedirectCache: [String: SimklIdResolution.Redirect?] = [:]
 
     struct PinCode: Sendable {
         let userCode: String
@@ -2126,7 +2143,7 @@ actor SimklClient {
             guard let value = ids[key]?.nilIfBlank else { continue }
             return key == "imdb" ? value : "\(key):\(value)"
         }
-        for key in ["tmdb", "tvdb", "mal", "kitsu"] {
+        for key in ["tmdb", "tvdb", "mal", "kitsu", "anilist"] {
             if let value = ids[key]?.nilIfBlank { return "\(key):\(value)" }
         }
         if let value = (ids["simkl"] ?? ids["simkl_id"])?.nilIfBlank { return "simkl:\(value)" }
@@ -2145,6 +2162,116 @@ actor SimklClient {
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             .nilIfBlank else { return nil }
         return "https://wsrv.nl/?url=https://simkl.in/posters/\(normalized)_m.webp&q=90"
+    }
+
+    // MARK: More like this
+
+    /// Simkl viewer recommendations first, then similarity matches deduplicated behind them.
+    /// A client id is sufficient; the viewer does not need to sign in.
+    func related(
+        imdbId: String,
+        clientId: String,
+        animePreference: SimklAnimeIdPreference = .imdb
+    ) async -> [MetaPreview] {
+        guard !clientId.isEmpty, !imdbId.isEmpty else { return [] }
+
+        struct Item: Decodable, Sendable {
+            let title: String?
+            let en_title: String?
+            let year: Int?
+            let poster: String?
+            let type: String?
+            let anime_type: String?
+            let ids: [String: FlexibleID]?
+        }
+
+        struct Payload: Decodable, Sendable {
+            let similar: [Item]?
+            let users_recommendations: [Item]?
+        }
+
+        let redirect: SimklIdResolution.Redirect
+        if let cached = relatedRedirectCache[imdbId] {
+            guard let cached else { return [] }
+            redirect = cached
+        } else {
+            let located = await simklRedirectLookup(
+                imdbId: imdbId,
+                clientId: clientId
+            )
+            relatedRedirectCache[imdbId] = located
+            guard let located else { return [] }
+            redirect = located
+        }
+
+        let cacheKey = "\(redirect.type)|\(redirect.simklId)"
+        if let cached = relatedCache[cacheKey],
+           Date().timeIntervalSince(cached.updatedAt) <= Self.relatedCacheTTL {
+            return cached.items
+        }
+
+        guard let payload = try? await IntegrationHTTP.get(
+            "\(base)/\(redirect.type)/\(redirect.simklId)?extended=full&client_id=\(clientId)",
+            as: Payload.self
+        ) else { return [] }
+
+        var seen = Set<String>()
+        var ordered: [Item] = []
+
+        // Viewer recommendations intentionally precede ordinary similarity matches.
+        for item in (payload.users_recommendations ?? []) + (payload.similar ?? []) {
+            let key =
+                item.ids?["simkl"]?.value
+                ?? item.ids?["slug"]?.value
+                ?? item.title
+                ?? ""
+
+            guard !key.isEmpty, seen.insert(key).inserted else { continue }
+            ordered.append(item)
+
+            if ordered.count >= Self.relatedLimit {
+                break
+            }
+        }
+
+        var keys = Set<String>()
+
+        let items: [MetaPreview] = ordered.compactMap { item in
+            guard let name = item.en_title?.nilIfBlank ?? item.title?.nilIfBlank,
+                  let ids = item.ids,
+                  let id = Self.canonicalContentId(
+                    ids,
+                    preference: animePreference
+                  )
+            else {
+                return nil
+            }
+
+            let type: ContentType =
+                item.type?.lowercased() == "movie"
+                || item.anime_type?.lowercased() == "movie"
+                ? .movie
+                : .series
+
+            guard keys.insert("\(type.apiString()):\(id)").inserted else {
+                return nil
+            }
+
+            return MetaPreview(
+                id: id,
+                type: type,
+                rawType: type.apiString(),
+                name: name,
+                poster: Self.posterURL(item.poster),
+                background: Self.posterURL(item.poster),
+                releaseInfo: item.year.map(String.init),
+                imdbId: ids["imdb"]?.value.nilIfBlank,
+                slug: ids["slug"]?.value.nilIfBlank
+            )
+        }
+
+        relatedCache[cacheKey] = (items, Date())
+        return items
     }
 
     // MARK: Auth

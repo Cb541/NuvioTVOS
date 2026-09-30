@@ -8,6 +8,7 @@ struct MetaDetailsView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppSettings.self) private var settings
     @Environment(Router.self) private var router
+    @Environment(PluginStore.self) private var plugins
 
     let request: DetailRequest
 
@@ -244,8 +245,39 @@ struct MetaDetailsView: View {
     private func actionRow(_ meta: Meta) -> some View {
         VStack(alignment: .leading, spacing: NuvioTheme.spacing.sm) {
             actionButtons(meta)
+            playbackUnavailableBanner(meta)
             trackingWriteBanner
         }
+    }
+
+    /// Whether an installed addon, enabled scraper, or inline meta stream can serve what Play
+    /// would actually open. Until addon manifests have loaded this deliberately fails open.
+    private var availability: PlaybackAvailability {
+        let manifests = addons.addons
+        return PlaybackAvailability(
+            addons: manifests,
+            scrapers: plugins.enabledScrapers,
+            isLoaded: !manifests.isEmpty
+        )
+    }
+
+    private func playTarget(_ meta: Meta) -> Video? {
+        guard meta.type == .series else { return nil }
+        return model.nextUpEpisode(
+            library: library,
+            threshold: settings.watchedThreshold,
+            fromFurthest: settings.layout.nextUpFromFurthestEpisode,
+            includeUnaired: settings.layout.showUnairedNextUp
+        )
+    }
+
+    private func canPlay(_ meta: Meta) -> Bool {
+        let target = playTarget(meta)
+        return availability.canStream(
+            type: meta.apiType,
+            videoId: target?.id ?? meta.id,
+            video: target
+        )
     }
 
     private func actionButtons(_ meta: Meta) -> some View {
@@ -260,6 +292,9 @@ struct MetaDetailsView: View {
                 .frame(height: NuvioTheme.components.buttonHeight)
             }
             .buttonStyle(NuvioPillButtonStyle(emphasis: .primary))
+            // The hero action may be disabled safely because Add to Library remains focusable.
+            // Episode cards stay focusable and gate their action separately.
+            .disabled(!canPlay(meta))
 
             Button(action: { toggleLibrary(meta) }) {
                 HStack(spacing: NuvioTheme.spacing.sm) {
@@ -336,6 +371,24 @@ struct MetaDetailsView: View {
         Task { await trackingWrites.library(preview, added: added, settings: settings) }
     }
 
+    /// Explain the disabled Play button instead of making it look broken.
+    @ViewBuilder
+    private func playbackUnavailableBanner(_ meta: Meta) -> some View {
+        if !canPlay(meta) {
+            Label(
+                L10n.text(
+                    "detail.playback_unavailable",
+                    fallback: "No enabled addon or scraper can serve streams for this title."
+                ),
+                systemImage: "exclamationmark.triangle"
+            )
+            .nuvioText(NuvioTextStyles.bodyCompact)
+            .foregroundStyle(colors.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: dp(620), alignment: .leading)
+        }
+    }
+
     /// Only ever shown for a remote failure. A write that went exactly where it was asked to
     /// needs no announcement.
     @ViewBuilder
@@ -407,6 +460,12 @@ struct MetaDetailsView: View {
 
     private func playEpisode(_ video: Video) {
         guard let meta = model.meta else { return }
+        // Keep the episode rail focusable even when unavailable; only suppress its action.
+        guard availability.canStream(
+            type: meta.apiType,
+            videoId: video.id,
+            video: video
+        ) else { return }
         library.cache(meta.preview())
         router.openStreams(streamRequest(for: video, meta: meta))
     }

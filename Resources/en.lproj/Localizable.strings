@@ -244,6 +244,7 @@
 "collection.empty" = "Nothing to show";
 "collection.load_more" = "Load more";
 "detail.needs_tmdb" = "This title came from TMDB — add a TMDB API key in Metadata settings to open it.";
+"detail.playback_unavailable" = "No enabled addon or scraper can serve streams for this title.";
 "detail.no_addon" = "No installed addon can describe this title.";
 "detail.load_failed" = "Could not load details for this title.";
 "streams.not_ready" = "Not Ready";
@@ -261,6 +262,22 @@
 "shell.switch_profile" = "Switch profile";
 
 /* SettingsView.swift */
+"settings.appearance.startup" = "Startup";
+"settings.appearance.startup_footnote" = "Shown only on a launch heading for Home — never in front of a title you opened directly.";
+"settings.appearance.splash" = "Launch screen";
+"settings.appearance.splash_subtitle" = "Show the Nuvio mark while the app starts";
+"settings.appearance.custom_theme" = "Custom";
+"settings.appearance.custom_colour" = "Accent colour";
+"settings.appearance.custom_colour_sub" = "Set the hex value from a phone";
+"settings.appearance.set_on_phone" = "Set from a phone";
+"settings.appearance.custom_instructions" = "This Apple TV is serving a page on your network. Scan the code with a phone on the same Wi-Fi and pick a colour there. The rest of the palette follows from it, the way each built-in theme's does.";
+"settings.appearance.custom_preview" = "Preview";
+"settings.appearance.custom_preview_footnote" = "The focus ring is the one to judge — it is what tells you where you are.";
+"settings.appearance.swatch_accent" = "Accent";
+"settings.appearance.swatch_pressed" = "Pressed";
+"settings.appearance.swatch_focus" = "Focus";
+"settings.appearance.swatch_card" = "Card";
+"settings.appearance.swatch_focused" = "Focused";
 "settings.appearance.accent_theme" = "Accent theme";
 "settings.appearance.typeface" = "Typeface";
 "settings.appearance.currently_in_use" = "Currently in use";

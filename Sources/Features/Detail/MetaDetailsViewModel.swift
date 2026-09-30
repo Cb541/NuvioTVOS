@@ -292,6 +292,22 @@ final class MetaDetailsViewModel {
                 }
             }
             await loadMoreLikeThisFromCatalog(addonStore: addonStore, meta: meta)
+
+        case .simkl:
+            let clientId = settings.tracking.simklClientId
+            if !clientId.isEmpty, let imdbId = meta.imdbId ?? idIfImdb(meta.id) {
+                let items = await SimklClient.shared.related(
+                    imdbId: imdbId,
+                    clientId: clientId,
+                    animePreference: settings.tracking.simklAnimeIdPreference
+                )
+                if !items.isEmpty {
+                    moreLikeThis = items.filter { $0.id != meta.id }
+                    return
+                }
+            }
+            await loadMoreLikeThisFromCatalog(addonStore: addonStore, meta: meta)
+
         case .addonCatalog:
             await loadMoreLikeThisFromCatalog(addonStore: addonStore, meta: meta)
         }

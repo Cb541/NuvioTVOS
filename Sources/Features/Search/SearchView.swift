@@ -69,6 +69,45 @@ final class SearchViewModel {
         await search(addonStore: addonStore, term: term, generation: searchGeneration)
     }
 
+    /// Bingecat's four purpose-built search catalogs should always lead Search.
+    /// Everything else keeps the existing result-count ordering behind them.
+    private func searchPriority(_ section: SearchSection) -> Int {
+        guard section.addonName.localizedCaseInsensitiveContains("bingecat") else {
+            return 100
+        }
+
+        let name = section.catalogName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let type = section.contentType.lowercased()
+
+        if name == "ai-assisted search" {
+            if type == "movie" { return 0 }
+            if type == "series" { return 1 }
+        }
+
+        if name == "exact search" {
+            if type == "movie" { return 2 }
+            if type == "series" { return 3 }
+        }
+
+        return 100
+    }
+
+    private func sortedSearchResults(_ sections: [SearchSection]) -> [SearchSection] {
+        sections.sorted { lhs, rhs in
+            let lhsPriority = searchPriority(lhs)
+            let rhsPriority = searchPriority(rhs)
+
+            if lhsPriority != rhsPriority {
+                return lhsPriority < rhsPriority
+            }
+
+            // Preserve the app's existing behavior for every non-priority row.
+            return lhs.items.count > rhs.items.count
+        }
+    }
+
     private func search(addonStore: AddonStore, term: String, generation: Int) async {
         let catalogs = addonStore.searchableCatalogs()
         guard !catalogs.isEmpty else {
@@ -116,21 +155,32 @@ final class SearchViewModel {
                 if let section {
                     collected.append(section)
                     // Results appear as addons answer rather than waiting for the slowest one.
-                    results = collected.sorted { $0.items.count > $1.items.count }
+                    results = sortedSearchResults(collected)
                 }
             }
         }
 
         guard !Task.isCancelled, generation == searchGeneration else { return }
-        results = collected.sorted { $0.items.count > $1.items.count }
+        results = sortedSearchResults(collected)
         if !results.isEmpty {
             recentSearches = SearchHistoryStore.record(term)
         }
     }
 
+    /// Recent searches when the field is empty; title completions once it is not.
+    ///
+    /// The completions come from what the search has already returned rather than from a second
+    /// round of requests — see `SearchSuggestions`. Recents stay as the fallback for the moment
+    /// before any addon has answered, which is exactly when a strip that empties itself would be
+    /// most annoying.
     var suggestions: [String] {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else { return recentSearches }
+        let completions = SearchSuggestions.ranked(
+            names: SearchSuggestions.merged(byCatalog: results.map { $0.items.map(\.name) }),
+            query: term
+        )
+        guard completions.isEmpty else { return completions }
         return recentSearches.filter { $0.localizedCaseInsensitiveContains(term) }
     }
 

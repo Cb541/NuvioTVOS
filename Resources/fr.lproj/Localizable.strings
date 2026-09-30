@@ -244,6 +244,7 @@
 "collection.empty" = "Rien à afficher";
 "collection.load_more" = "Charger plus";
 "detail.needs_tmdb" = "Ce titre vient de TMDB — ajoutez une clé d’API TMDB dans les réglages Métadonnées pour l’ouvrir.";
+"detail.playback_unavailable" = "Aucun addon ni scraper activé ne peut fournir de flux pour ce titre.";
 "detail.no_addon" = "Aucun addon installé ne peut décrire ce titre.";
 "detail.load_failed" = "Impossible de charger la fiche de ce titre.";
 "streams.not_ready" = "Pas prêt";
@@ -261,6 +262,22 @@
 "shell.switch_profile" = "Changer de profil";
 
 /* SettingsView.swift */
+"settings.appearance.startup" = "Démarrage";
+"settings.appearance.startup_footnote" = "Affiché uniquement au lancement vers l’accueil — jamais devant un titre ouvert directement.";
+"settings.appearance.splash" = "Écran de lancement";
+"settings.appearance.splash_subtitle" = "Afficher la marque Nuvio pendant le démarrage";
+"settings.appearance.custom_theme" = "Personnalisé";
+"settings.appearance.custom_colour" = "Couleur d’accent";
+"settings.appearance.custom_colour_sub" = "Définir la valeur hexadécimale depuis un téléphone";
+"settings.appearance.set_on_phone" = "Définir depuis un téléphone";
+"settings.appearance.custom_instructions" = "Cette Apple TV sert une page sur votre réseau. Scannez le code avec un téléphone sur le même Wi-Fi et choisissez-y une couleur. Le reste de la palette en découle, comme pour chaque thème intégré.";
+"settings.appearance.custom_preview" = "Aperçu";
+"settings.appearance.custom_preview_footnote" = "C’est l’anneau de focus qu’il faut juger — c’est lui qui vous dit où vous êtes.";
+"settings.appearance.swatch_accent" = "Accent";
+"settings.appearance.swatch_pressed" = "Appuyé";
+"settings.appearance.swatch_focus" = "Focus";
+"settings.appearance.swatch_card" = "Carte";
+"settings.appearance.swatch_focused" = "Sélectionné";
 "settings.appearance.accent_theme" = "Thème d’accentuation";
 "settings.appearance.typeface" = "Police";
 "settings.appearance.currently_in_use" = "Actuellement utilisée";
