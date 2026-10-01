@@ -113,6 +113,7 @@
 "licenses.native_body" = "Rendu des sous-titres, gestion des couleurs, décodage AV1 et couche Vulkan-sur-Metal qui dessine l'image. Chacun conserve sa licence d'origine — ISC, LGPL, BSD et Apache 2.0 respectivement.";
 
 /* Fiche & diagnostics du lecteur */
+"detail.play" = "Lire";
 "detail.trailers" = "Bandes-annonces";
 "detail.trailer" = "Bande-annonce";
 "player.no_audio_device" = "Aucune sortie audio";
