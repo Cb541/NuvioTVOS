@@ -61,6 +61,28 @@ final class SettingsStore: PreferenceStore {
         set { setString("custom_theme_accent", newValue) }
     }
 
+    /// Empty means "follow the automatically derived value from Accent".
+    /// Once explicitly saved these become independent theme colours.
+    var customThemePressedHex: String {
+        get { string("custom_theme_pressed", default: "") }
+        set { setString("custom_theme_pressed", newValue) }
+    }
+
+    var customThemeFocusRingHex: String {
+        get { string("custom_theme_focus_ring", default: "") }
+        set { setString("custom_theme_focus_ring", newValue) }
+    }
+
+    var customThemeFocusBackgroundHex: String {
+        get { string("custom_theme_focus_background", default: "") }
+        set { setString("custom_theme_focus_background", newValue) }
+    }
+
+    var customThemeCardBackgroundHex: String {
+        get { string("custom_theme_card_background", default: "") }
+        set { setString("custom_theme_card_background", newValue) }
+    }
+
     /// `startup_splash_enabled`. Off by default, unlike upstream's: a sideloaded app is opened
     /// by someone who already knows what they installed, and a logo between them and Home is a
     /// delay rather than a welcome. Offered because it is a taste, not because it is a default.
@@ -130,7 +152,14 @@ final class SettingsStore: PreferenceStore {
 
     var colors: NuvioColorScheme {
         NuvioColorScheme(
-            palette: ThemeColors.palette(for: theme, accentHex: customThemeAccentHex),
+            palette: ThemeColors.palette(
+                for: theme,
+                accentHex: customThemeAccentHex,
+                pressedHex: customThemePressedHex,
+                focusRingHex: customThemeFocusRingHex,
+                focusBackgroundHex: customThemeFocusBackgroundHex,
+                cardBackgroundHex: customThemeCardBackgroundHex
+            ),
             amoledMode: amoledMode,
             amoledSurfaces: amoledSurfaces
         )

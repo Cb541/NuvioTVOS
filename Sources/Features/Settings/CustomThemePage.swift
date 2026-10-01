@@ -1,17 +1,53 @@
 import Foundation
 
-/// The page `LocalConfigServer` serves for the custom theme's accent.
-///
-/// The one page of the five where the phone's own controls do the work: `<input type="color">` is
-/// a native colour picker on every mobile browser, which is exactly the thing a D-pad cannot be.
-/// The hex field sits beside it for anyone who already knows the value they want.
-///
-/// Self-contained like the others — served off a television on a home network, so a stylesheet
-/// from anywhere else would leave the phone with an unusable form.
+/// Phone editor for every colour used by the custom theme.
 enum CustomThemePage {
-    static func html(accentHex: String) -> String {
-        let hex = CustomThemePalette.components(fromHex: accentHex).map(CustomThemePalette.hex)
-            ?? CustomThemePalette.defaultHex
+    static func html(
+        accentHex: String,
+        pressedHex: String,
+        focusRingHex: String,
+        focusBackgroundHex: String,
+        cardBackgroundHex: String
+    ) -> String {
+        func clean(_ raw: String, fallback: String) -> String {
+            CustomThemePalette.components(fromHex: raw).map(CustomThemePalette.hex) ?? fallback
+        }
+
+        let accent = clean(accentHex, fallback: CustomThemePalette.defaultHex)
+        let pressed = clean(
+            pressedHex,
+            fallback: CustomThemePalette.derivedPressedHex(from: accent)
+        )
+        let focusRing = clean(
+            focusRingHex,
+            fallback: CustomThemePalette.derivedFocusRingHex(from: accent)
+        )
+        let focusBackground = clean(
+            focusBackgroundHex,
+            fallback: CustomThemePalette.derivedFocusBackgroundHex(from: accent)
+        )
+        let cardBackground = clean(
+            cardBackgroundHex,
+            fallback: CustomThemePalette.derivedCardBackgroundHex(from: accent)
+        )
+
+        func picker(_ id: String, _ title: String, _ value: String, _ hint: String) -> String {
+            """
+            <section class="colour">
+              <label for="\(id)-picker">\(title)</label>
+              <p class="hint">\(hint)</p>
+              <div class="pick">
+                <input type="color" id="\(id)-picker" value="#\(value)"
+                       oninput="syncPicker('\(id)')">
+                <input type="text" id="\(id)" name="\(id)" value="\(value)"
+                       spellcheck="false" autocapitalize="characters" autocorrect="off"
+                       inputmode="latin" maxlength="7"
+                       oninput="syncText('\(id)')">
+              </div>
+            </section>
+            """
+        }
+
         return """
         <!doctype html>
         <html lang="en">
@@ -28,65 +64,118 @@ enum CustomThemePage {
             font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
           }
           .wrap { max-width: 720px; margin: 0 auto; }
-          h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+          h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -.01em; }
           p.lede { margin: 0 0 28px; color: #9a9aa8; font-size: 15px; }
-          label { display: block; font-weight: 600; margin: 0 0 6px; font-size: 15px; }
-          .hint { color: #9a9aa8; font-size: 13px; margin: 0 0 8px; }
-          .pick { display: flex; gap: 14px; align-items: center; margin-bottom: 26px; }
+          .colour {
+            border-bottom: 1px solid #24242e;
+            padding: 0 0 22px;
+            margin: 0 0 22px;
+          }
+          label { display: block; font-weight: 650; margin: 0 0 4px; font-size: 16px; }
+          .hint { color: #9a9aa8; font-size: 13px; margin: 0 0 10px; }
+          .pick { display: flex; gap: 14px; align-items: center; }
           input[type=color] {
             appearance: none; -webkit-appearance: none; border: 0; padding: 0;
-            width: 96px; height: 96px; border-radius: 16px; background: none; cursor: pointer;
+            width: 76px; height: 76px; border-radius: 14px; background: none; cursor: pointer;
           }
           input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
-          input[type=color]::-webkit-color-swatch { border: 1px solid #2c2c38; border-radius: 16px; }
+          input[type=color]::-webkit-color-swatch {
+            border: 1px solid #2c2c38; border-radius: 14px;
+          }
           input[type=text] {
             flex: 1; background: #191920; color: #ececf1;
             border: 1px solid #2c2c38; border-radius: 10px; padding: 14px 12px;
             font: 16px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
             text-transform: uppercase; -webkit-appearance: none;
           }
-          input:focus { outline: 2px solid #4fc9dd; outline-offset: 1px; border-color: transparent; }
-          .row { display: flex; gap: 10px; flex-wrap: wrap; }
+          input:focus {
+            outline: 2px solid #4fc9dd; outline-offset: 1px; border-color: transparent;
+          }
+          .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
           button {
-            flex: 1 1 160px; padding: 13px 18px; border-radius: 10px; border: 0;
+            flex: 1 1 180px; padding: 14px 18px; border-radius: 10px; border: 0;
             font: 600 16px/1 -apple-system, system-ui, sans-serif; cursor: pointer;
           }
+          button.apply { background: #343440; color: #ececf1; margin-bottom: 18px; width: 100%; }
           button.save { background: #4fc9dd; color: #06222a; }
           button.reset { background: #24242e; color: #ececf1; }
-          .note { margin-top: 30px; border-top: 1px solid #24242e; padding-top: 18px;
-                  color: #9a9aa8; font-size: 14px; }
+          .note {
+            margin-top: 30px; border-top: 1px solid #24242e; padding-top: 18px;
+            color: #9a9aa8; font-size: 14px;
+          }
         </style>
+        <script>
+          function normalise(value) {
+            return value.replace('#', '').toUpperCase();
+          }
+
+          function syncPicker(id) {
+            const picker = document.getElementById(id + '-picker');
+            document.getElementById(id).value =
+              picker.value.slice(1).toUpperCase();
+          }
+
+          function syncText(id) {
+            const field = document.getElementById(id);
+            const value = normalise(field.value);
+            if (/^[0-9A-F]{6}$/.test(value)) {
+              document.getElementById(id + '-picker').value = '#' + value;
+            }
+          }
+
+          function applyAccentToAll() {
+            const accent = normalise(document.getElementById('accent').value);
+            if (!/^[0-9A-F]{6}$/.test(accent)) return;
+
+            ['pressed', 'focusRing', 'focusBackground', 'cardBackground'].forEach(function(id) {
+              document.getElementById(id).value = accent;
+              document.getElementById(id + '-picker').value = '#' + accent;
+            });
+          }
+        </script>
         </head>
         <body>
         <div class="wrap">
           <h1>Custom theme</h1>
-          <p class="lede">One accent colour. The pressed shade, the focus ring and the card
-          background follow from it, the way each built-in theme's do.</p>
+          <p class="lede">
+            Set each part of the Nuvio theme independently, or choose one accent and apply it everywhere.
+          </p>
 
           <form method="post">
-            <label for="picker">Accent</label>
-            <p class="hint">Tap the square for your phone's colour picker, or type a hex value.</p>
-            <div class="pick">
-              <input type="color" id="picker" value="#\(hex)"
-                     oninput="document.getElementById('accent').value = this.value.slice(1).toUpperCase()">
-              <input type="text" id="accent" name="accent" value="\(hex)"
-                     spellcheck="false" autocapitalize="characters" autocorrect="off"
-                     inputmode="latin" maxlength="7"
-                     oninput="if (/^#?[0-9a-fA-F]{6}$/.test(this.value)) {
-                                document.getElementById('picker').value =
-                                  '#' + this.value.replace('#','');
-                              }">
-            </div>
+            \(picker("accent", "Accent", accent,
+                "Buttons, highlights and the main identity of the theme."))
+
+            <button class="apply" type="button" onclick="applyAccentToAll()">
+              Apply Accent to All
+            </button>
+
+            \(picker("pressed", "Pressed", pressed,
+                "The colour used for the pressed or secondary button state."))
+
+            \(picker("focusRing", "Focus Ring", focusRing,
+                "The outline that shows which item currently has Apple TV focus."))
+
+            \(picker("focusBackground", "Focused Background", focusBackground,
+                "The surface behind focused controls and focused content."))
+
+            \(picker("cardBackground", "Card Background", cardBackground,
+                "The normal background colour used by theme-aware cards."))
 
             <div class="row">
-              <button class="save" type="submit" name="action" value="save">Save</button>
-              <button class="reset" type="submit" name="action" value="reset">Restore default</button>
+              <button class="save" type="submit" name="action" value="save">
+                Save Theme
+              </button>
+              <button class="reset" type="submit" name="action" value="reset">
+                Restore Automatic Defaults
+              </button>
             </div>
           </form>
 
-          <p class="note">Judge it on the television rather than here: the focus ring is what tells
-          you where you are on screen, and a colour that reads well on a phone can disappear against
-          the picture across a room. The Apple TV shows a preview as soon as you save.</p>
+          <p class="note">
+            Apply Accent to All only copies the accent into the other fields. You can still change
+            any of them individually before saving. Restore Automatic Defaults keeps your accent
+            and returns the other four colours to Nuvio's automatically derived values.
+          </p>
         </div>
         </body>
         </html>

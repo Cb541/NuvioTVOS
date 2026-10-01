@@ -127,10 +127,24 @@ enum ThemeColors {
         backgroundCard: NuvioPrimitives.neutral850
     )
 
-    /// `accentHex` is only read for the custom theme; the presets ignore it.
-    static func palette(for theme: AppTheme, accentHex: String = "") -> ThemeColorPalette {
+    /// Custom colour arguments are read only for the custom theme; presets ignore them.
+    static func palette(
+        for theme: AppTheme,
+        accentHex: String = "",
+        pressedHex: String? = nil,
+        focusRingHex: String? = nil,
+        focusBackgroundHex: String? = nil,
+        cardBackgroundHex: String? = nil
+    ) -> ThemeColorPalette {
         switch theme {
-        case .custom: return CustomThemePalette.palette(accentHex: accentHex)
+        case .custom:
+            return CustomThemePalette.palette(
+                accentHex: accentHex,
+                pressedHex: pressedHex,
+                focusRingHex: focusRingHex,
+                focusBackgroundHex: focusBackgroundHex,
+                cardBackgroundHex: cardBackgroundHex
+            )
         case .crimson: return crimson
         case .ocean: return ocean
         case .violet: return violet

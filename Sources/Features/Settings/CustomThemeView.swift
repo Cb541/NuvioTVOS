@@ -17,8 +17,47 @@ struct CustomThemeView: View {
     @State private var server = LocalConfigServer()
 
     private var accentHex: String { settings.app.customThemeAccentHex }
+
+    private var pressedHex: String {
+        resolved(
+            settings.app.customThemePressedHex,
+            fallback: CustomThemePalette.derivedPressedHex(from: accentHex)
+        )
+    }
+
+    private var focusRingHex: String {
+        resolved(
+            settings.app.customThemeFocusRingHex,
+            fallback: CustomThemePalette.derivedFocusRingHex(from: accentHex)
+        )
+    }
+
+    private var focusBackgroundHex: String {
+        resolved(
+            settings.app.customThemeFocusBackgroundHex,
+            fallback: CustomThemePalette.derivedFocusBackgroundHex(from: accentHex)
+        )
+    }
+
+    private var cardBackgroundHex: String {
+        resolved(
+            settings.app.customThemeCardBackgroundHex,
+            fallback: CustomThemePalette.derivedCardBackgroundHex(from: accentHex)
+        )
+    }
+
     private var palette: ThemeColorPalette {
-        CustomThemePalette.palette(accentHex: accentHex)
+        CustomThemePalette.palette(
+            accentHex: accentHex,
+            pressedHex: settings.app.customThemePressedHex,
+            focusRingHex: settings.app.customThemeFocusRingHex,
+            focusBackgroundHex: settings.app.customThemeFocusBackgroundHex,
+            cardBackgroundHex: settings.app.customThemeCardBackgroundHex
+        )
+    }
+
+    private func resolved(_ raw: String, fallback: String) -> String {
+        CustomThemePalette.components(fromHex: raw).map(CustomThemePalette.hex) ?? fallback
     }
 
     var body: some View {
@@ -92,14 +131,21 @@ struct CustomThemeView: View {
             )
         ) {
             VStack(alignment: .leading, spacing: NuvioTheme.spacing.lg) {
-                Text("#\(accentHex)")
-                    .nuvioText(NuvioTextStyles.cardTitle)
-                    .foregroundStyle(colors.textPrimary)
+                VStack(alignment: .leading, spacing: NuvioTheme.spacing.xxs) {
+                    Text("Accent  #\(accentHex)")
+                    Text("Pressed  #\(pressedHex)")
+                    Text("Focus Ring  #\(focusRingHex)")
+                    Text("Focused Background  #\(focusBackgroundHex)")
+                    Text("Card Background  #\(cardBackgroundHex)")
+                }
+                .nuvioText(NuvioTextStyles.metadata)
+                .foregroundStyle(colors.textSecondary)
 
                 HStack(spacing: NuvioTheme.spacing.md) {
                     swatch(palette.secondary, L10n.text("settings.appearance.swatch_accent", fallback: "Accent"))
                     swatch(palette.secondaryVariant, L10n.text("settings.appearance.swatch_pressed", fallback: "Pressed"))
-                    swatch(palette.focusRing, L10n.text("settings.appearance.swatch_focus", fallback: "Focus"))
+                    swatch(palette.focusRing, L10n.text("settings.appearance.swatch_focus", fallback: "Focus Ring"))
+                    swatch(palette.focusBackground, "Focused BG")
                     swatch(palette.backgroundCard, L10n.text("settings.appearance.swatch_card", fallback: "Card"))
                 }
 
@@ -163,18 +209,47 @@ struct CustomThemeView: View {
 
     private func start() {
         server.start(
-            page: { CustomThemePage.html(accentHex: settings.app.customThemeAccentHex) },
+            page: {
+                CustomThemePage.html(
+                    accentHex: settings.app.customThemeAccentHex,
+                    pressedHex: settings.app.customThemePressedHex,
+                    focusRingHex: settings.app.customThemeFocusRingHex,
+                    focusBackgroundHex: settings.app.customThemeFocusBackgroundHex,
+                    cardBackgroundHex: settings.app.customThemeCardBackgroundHex
+                )
+            },
             onSubmit: { fields in
                 if fields["action"] == "reset" {
-                    settings.app.customThemeAccentHex = CustomThemePalette.defaultHex
+                    // Keep the viewer's chosen accent and return the other four slots to automatic
+                    // derivation from it.
+                    settings.app.customThemePressedHex = ""
+                    settings.app.customThemeFocusRingHex = ""
+                    settings.app.customThemeFocusBackgroundHex = ""
+                    settings.app.customThemeCardBackgroundHex = ""
                     return
                 }
-                // A half-typed value leaves the previous theme standing rather than resolving to
-                // black — the parser refuses it, and refusing is the whole point.
-                guard let components = CustomThemePalette.components(
-                    fromHex: fields["accent"] ?? ""
-                ) else { return }
-                settings.app.customThemeAccentHex = CustomThemePalette.hex(components)
+
+                func parsed(_ key: String) -> String? {
+                    guard let components = CustomThemePalette.components(
+                        fromHex: fields[key] ?? ""
+                    ) else { return nil }
+                    return CustomThemePalette.hex(components)
+                }
+
+                // Save atomically: one malformed field leaves the previous complete theme intact.
+                guard
+                    let accent = parsed("accent"),
+                    let pressed = parsed("pressed"),
+                    let focusRing = parsed("focusRing"),
+                    let focusBackground = parsed("focusBackground"),
+                    let cardBackground = parsed("cardBackground")
+                else { return }
+
+                settings.app.customThemeAccentHex = accent
+                settings.app.customThemePressedHex = pressed
+                settings.app.customThemeFocusRingHex = focusRing
+                settings.app.customThemeFocusBackgroundHex = focusBackground
+                settings.app.customThemeCardBackgroundHex = cardBackground
             }
         )
     }

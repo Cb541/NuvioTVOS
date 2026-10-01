@@ -90,10 +90,51 @@ enum CustomThemePalette {
         return luminance > 0.5
     }
 
-    static func palette(accentHex: String) -> ThemeColorPalette {
+    static func derivedPressedHex(from accentHex: String) -> String {
         let accent = components(fromHex: accentHex)
             ?? components(fromHex: defaultHex)!
+        return hex(shifted(accent, towards: 0, amount: 0.22))
+    }
+
+    static func derivedFocusRingHex(from accentHex: String) -> String {
+        let accent = components(fromHex: accentHex)
+            ?? components(fromHex: defaultHex)!
+        return hex(shifted(accent, towards: 255, amount: 0.35))
+    }
+
+    static func derivedFocusBackgroundHex(from accentHex: String) -> String {
+        let accent = components(fromHex: accentHex)
+            ?? components(fromHex: defaultHex)!
+        return hex(tintedSurface(accent, base: 12, weight: 0.18))
+    }
+
+    static func derivedCardBackgroundHex(from accentHex: String) -> String {
+        let accent = components(fromHex: accentHex)
+            ?? components(fromHex: defaultHex)!
+        return hex(tintedSurface(accent, base: 20, weight: 0.05))
+    }
+
+    static func palette(
+        accentHex: String,
+        pressedHex: String? = nil,
+        focusRingHex: String? = nil,
+        focusBackgroundHex: String? = nil,
+        cardBackgroundHex: String? = nil
+    ) -> ThemeColorPalette {
+        let accent = components(fromHex: accentHex)
+            ?? components(fromHex: defaultHex)!
+
+        let pressed = components(fromHex: pressedHex ?? "")
+            ?? shifted(accent, towards: 0, amount: 0.22)
+        let focusRing = components(fromHex: focusRingHex ?? "")
+            ?? shifted(accent, towards: 255, amount: 0.35)
+        let focusBackground = components(fromHex: focusBackgroundHex ?? "")
+            ?? tintedSurface(accent, base: 12, weight: 0.18)
+        let cardBackground = components(fromHex: cardBackgroundHex ?? "")
+            ?? tintedSurface(accent, base: 20, weight: 0.05)
+
         let dark = prefersDarkForeground(accent)
+        let pressedDark = prefersDarkForeground(pressed)
 
         func color(_ value: (red: Int, green: Int, blue: Int)) -> Color {
             Color(
@@ -107,12 +148,12 @@ enum CustomThemePalette {
 
         return ThemeColorPalette(
             secondary: color(accent),
-            secondaryVariant: color(shifted(accent, towards: 0, amount: 0.22)),
+            secondaryVariant: color(pressed),
             onSecondary: dark ? NuvioPrimitives.neutral925 : NuvioPrimitives.white,
-            onSecondaryVariant: dark ? NuvioPrimitives.neutral925 : NuvioPrimitives.white,
-            focusRing: color(shifted(accent, towards: 255, amount: 0.35)),
-            focusBackground: color(tintedSurface(accent, base: 12, weight: 0.18)),
-            backgroundCard: color(tintedSurface(accent, base: 20, weight: 0.05))
+            onSecondaryVariant: pressedDark ? NuvioPrimitives.neutral925 : NuvioPrimitives.white,
+            focusRing: color(focusRing),
+            focusBackground: color(focusBackground),
+            backgroundCard: color(cardBackground)
         )
     }
 }
