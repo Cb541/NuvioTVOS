@@ -113,6 +113,7 @@
 "licenses.native_body" = "Subtitle rendering, colour management, AV1 decoding and the Vulkan-on-Metal layer that draws the picture. Each retains its upstream licence — ISC, LGPL, BSD and Apache 2.0 respectively.";
 
 /* Detail & player diagnostics */
+"detail.play" = "Play";
 "detail.trailers" = "Trailers";
 "detail.trailer" = "Trailer";
 "player.no_audio_device" = "No audio device";
