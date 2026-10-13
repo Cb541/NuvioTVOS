@@ -15,6 +15,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     case vlc
     case nplayer
     case senplayer
+    case nativePlayer = "nativeplayer"
     case outplayer
 
     var id: String { rawValue }
@@ -25,6 +26,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .vlc: return "VLC"
         case .nplayer: return "nPlayer"
         case .senplayer: return "SenPlayer"
+        case .nativePlayer: return "Native Player"
         case .outplayer: return "Outplayer"
         }
     }
@@ -35,6 +37,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .vlc: return "Plays essentially anything, VideoLAN"
         case .nplayer: return "Hardware-accelerated, wide format support"
         case .senplayer: return "Dolby Vision and wide-format external playback"
+        case .nativePlayer: return "Native tvOS playback with TrueHD Atmos, DTS:X and Dolby Vision"
         case .outplayer: return "Lightweight MKV-capable player"
         }
     }
@@ -46,6 +49,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .vlc: return "vlc-x-callback"
         case .nplayer: return "nplayer"
         case .senplayer: return "senplayer"
+        case .nativePlayer: return "nativeplayer"
         case .outplayer: return "outplayer"
         }
     }
@@ -54,7 +58,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     /// take a bare stream URL and nothing else, so a track cannot travel with the hand-off.
     var acceptsSubtitleURL: Bool {
         switch self {
-        case .infuse, .vlc: return true
+        case .infuse, .vlc, .nativePlayer: return true
         case .nplayer, .senplayer, .outplayer: return false
         }
     }
@@ -94,6 +98,17 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
             // SenPlayer uses the x-callback-url handoff and expects the stream
             // as the percent-encoded `url` query parameter.
             return URL(string: "senplayer://x-callback-url/play?url=\(encoded)")
+        case .nativePlayer:
+            // Native Player mirrors Infuse's x-callback handoff. Title and an optional
+            // sidecar subtitle can travel with the resolved stream URL.
+            var string = "nativeplayer://x-callback-url/play?url=\(encoded)"
+            if let title, let encodedTitle = title.addingPercentEncoding(
+                withAllowedCharacters: .externalPlayerArgument
+            ) {
+                string += "&name=\(encodedTitle)"
+            }
+            if let encodedSubtitle { string += "&sub=\(encodedSubtitle)" }
+            return URL(string: string)
         case .outplayer:
             return URL(string: "outplayer://\(stream)")
         }
@@ -119,10 +134,10 @@ enum ExternalPlayerLauncher {
     }
 
     static func isInstalled(_ player: ExternalPlayer) -> Bool {
-        // tvOS can report false for SenPlayer's custom URL scheme even when
-        // the app is installed. SenPlayer has a verified x-callback handoff,
-        // so keep it available in the external-player list.
-        if player == .senplayer {
+        // tvOS can report false for some custom URL schemes even when the app is installed.
+        // SenPlayer and Native Player both have verified x-callback handoffs, so keep them
+        // available in the external-player list.
+        if player == .senplayer || player == .nativePlayer {
             return true
         }
 
@@ -141,7 +156,7 @@ enum ExternalPlayerLauncher {
             return false
         }
 
-        if player != .senplayer && !UIApplication.shared.canOpenURL(url) {
+        if player != .senplayer && player != .nativePlayer && !UIApplication.shared.canOpenURL(url) {
             return false
         }
 
