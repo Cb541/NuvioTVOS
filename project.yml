@@ -177,6 +177,7 @@ targets:
           - vlc
           - nplayer
           - senplayer
+          - nativeplayer
           - outplayer
         CFBundleURLTypes:
           - CFBundleTypeRole: Viewer
