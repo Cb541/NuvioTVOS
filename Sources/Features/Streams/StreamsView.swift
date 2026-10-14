@@ -470,6 +470,7 @@ struct StreamsView: View {
     @State private var selectedAddon: String?
     /// Set when the viewer has to choose where a resolved stream opens.
     @State private var handOff: HandOffRequest?
+    @State private var externalPlayerLaunchFailed = false
 
     private var displayedGroups: [AddonStreams] {
         guard let selectedAddon else { return model.groups }
@@ -498,6 +499,11 @@ struct StreamsView: View {
                 handOff = nil
                 router.play(pending.playback)
             }
+        }
+        .alert("External player didn't open", isPresented: $externalPlayerLaunchFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("The selected player could not be opened on Apple TV. Make sure the standalone player IPA is installed and launched once, then try again.")
         }
         .task {
             // Handed in rather than read inside the model: the store is main-actor state and
@@ -824,7 +830,7 @@ struct StreamsView: View {
         guard case .success(let url) = result else { return }
 
         let playback = makePlaybackRequest(stream: stream, url: url)
-        let installed = ExternalPlayerLauncher.installed
+        let installed = ExternalPlayerLauncher.choices
 
         // Where the stream opens: internally, in a chosen external app, or ask each time.
         switch settings.player.playerPreference {
@@ -837,7 +843,11 @@ struct StreamsView: View {
                 ExternalPlayerLauncher.open(
                     preferred, stream: url, title: request.title,
                     subtitleURL: forwardedSubtitleURL
-                )
+                ) { launched in
+                    if !launched {
+                        Task { @MainActor in self.externalPlayerLaunchFailed = true }
+                    }
+                }
             } else if !installed.isEmpty {
                 // Set to external but no usable choice recorded — ask rather than guess.
                 handOff = HandOffRequest(playback: playback)
@@ -1274,11 +1284,12 @@ struct ExternalPlayerPicker: View {
     @Environment(\.nuvioColors) private var colors
     @Environment(\.dismiss) private var dismiss
     @Environment(AppSettings.self) private var settings
+    @State private var launchFailed = false
 
     let playback: PlaybackRequest
     let onInternal: () -> Void
 
-    private var installed: [ExternalPlayer] { ExternalPlayerLauncher.installed }
+    private var installed: [ExternalPlayer] { ExternalPlayerLauncher.choices }
     private var forwardsSubtitles: Bool { settings.player.externalPlayerForwardSubtitles }
     private var losesHeaders: Bool { !playback.headers.isEmpty }
 
@@ -1298,7 +1309,7 @@ struct ExternalPlayerPicker: View {
                     footnote: "AVFoundation covers H.264 and HEVC in MP4 and HLS. It cannot open MKV — use an external player for those."
                 ) {
                     SettingsRow(
-                        title: L10n.text("streams.nuvio_player", fallback: "Nuvio player"),
+                        title: "Nuvio player (built-in)",
                         subtitle: "Resume, progress tracking, addon subtitles and auto-play all work here",
                         systemImage: "play.rectangle.fill",
                         action: onInternal
@@ -1322,8 +1333,15 @@ struct ExternalPlayerPicker: View {
                                     stream: playback.streamURL,
                                     title: playback.title,
                                     subtitleURL: forwardsSubtitles ? playback.subtitles.first?.url : nil
-                                )
-                                dismiss()
+                                ) { launched in
+                                    Task { @MainActor in
+                                        if launched {
+                                            dismiss()
+                                        } else {
+                                            launchFailed = true
+                                        }
+                                    }
+                                }
                             }
                         )
                     }
@@ -1337,6 +1355,11 @@ struct ExternalPlayerPicker: View {
                 }
                 .buttonStyle(NuvioPillButtonStyle(emphasis: .secondary))
             }
+        }
+        .alert("Unable to open external player", isPresented: $launchFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Apple TV couldn't launch this player. Install the standalone Nuvio Player IPA, open it once from the Home Screen, and try again.")
         }
     }
 }
