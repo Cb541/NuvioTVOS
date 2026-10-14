@@ -28,7 +28,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nPlayer"
         case .senplayer: return "SenPlayer"
         case .nativePlayer: return "Native Player"
-        case .plezy: return "Plezy"
+        case .plezy: return "Nuvio Player"
         case .outplayer: return "Outplayer"
         }
     }
@@ -40,7 +40,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "Hardware-accelerated, wide format support"
         case .senplayer: return "Dolby Vision and wide-format external playback"
         case .nativePlayer: return "Native tvOS playback with TrueHD Atmos, DTS:X and Dolby Vision"
-        case .plezy: return "Preview seeking and Dolby Vision support (custom Plezy build required)"
+        case .plezy: return "Dedicated external playback: DV P8.1, remote scrub previews, zoom and stretch"
         case .outplayer: return "Lightweight MKV-capable player"
         }
     }
@@ -53,7 +53,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nplayer"
         case .senplayer: return "senplayer"
         case .nativePlayer: return "nativeplayer"
-        case .plezy: return "plezy"
+        case .plezy: return "nuvio-player"
         case .outplayer: return "outplayer"
         }
     }
@@ -105,7 +105,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .plezy:
             // Custom Plezy build consumes direct Nuvio streams via a dedicated deep link.
             // Stock Plezy's existing plezy://play?content_id= handler cannot use this URL.
-            var string = "plezy://stream?url=\(encoded)"
+            var string = "nuvio-player://stream?url=\(encoded)"
             if let title, let encodedTitle = title.addingPercentEncoding(
                 withAllowedCharacters: .externalPlayerArgument
             ) {

@@ -6,6 +6,7 @@ on:
     branches:
       - plezy-external-player-1.0.37
       - plezy-only-no-neptune-1.0.37
+      - nuvio-external-player-1.0.37
 
 jobs:
   build:
