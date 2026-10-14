@@ -5,6 +5,7 @@ import XCTest
 final class ExternalPlayerPlezyTests: XCTestCase {
     func testPlezyIsOfferedAsExternalPlayer() {
         XCTAssertTrue(ExternalPlayer.allCases.contains(.plezy))
+        XCTAssertNil(ExternalPlayer(rawValue: "neptune"), "Neptune must not appear in the Plezy-only build")
         XCTAssertEqual(ExternalPlayer.plezy.displayName, "Plezy")
         XCTAssertEqual(ExternalPlayer.plezy.probeScheme, "plezy")
         XCTAssertTrue(ExternalPlayer.plezy.acceptsSubtitleURL)
