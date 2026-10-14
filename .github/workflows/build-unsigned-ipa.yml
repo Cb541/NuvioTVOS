@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - plezy-external-player-1.0.37
+      - plezy-only-no-neptune-1.0.37
 
 jobs:
   build:
@@ -35,6 +36,14 @@ jobs:
           test -d Vendor/MoltenVK.xcframework
           echo "Vendor frameworks present:"
           find Vendor -maxdepth 1 -name '*.xcframework' -type d | sort
+
+      - name: Verify Plezy-only player list (no Neptune)
+        run: |
+          grep -q 'case plezy' Sources/Data/ExternalPlayers.swift
+          if grep -iq 'neptune' Sources/Data/ExternalPlayers.swift Sources/App/Info.plist; then
+            echo 'Unexpected Neptune support in Plezy-only build'
+            exit 1
+          fi
 
       - name: Generate Xcode project
         run: xcodegen generate
