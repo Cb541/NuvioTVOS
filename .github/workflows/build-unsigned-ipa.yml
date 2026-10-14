@@ -38,13 +38,16 @@ jobs:
           echo "Vendor frameworks present:"
           find Vendor -maxdepth 1 -name '*.xcframework' -type d | sort
 
-      - name: Verify Plezy-only player list (no Neptune)
+      - name: Verify native-only external player integration
         run: |
-          grep -q 'case plezy' Sources/Data/ExternalPlayers.swift
           grep -q 'case nuvioNative' Sources/Data/ExternalPlayers.swift
-          grep -q 'nuvio-player' Sources/App/Info.plist
-          if grep -iq 'neptune' Sources/Data/ExternalPlayers.swift Sources/App/Info.plist; then
-            echo 'Unexpected Neptune support in Plezy-only build'
+          grep -q 'nuvio-player' project.yml
+          if grep -iqE 'case plezy|plezy://' Sources/Data/ExternalPlayers.swift; then
+            echo 'Plezy unexpectedly offered as an external player'
+            exit 1
+          fi
+          if grep -iqE 'neptune|plezy' Sources/App/Info.plist; then
+            echo 'Old player scheme unexpectedly present in source Info.plist'
             exit 1
           fi
 
@@ -71,6 +74,15 @@ jobs:
           APP_PATH="build/NuvioTVOS.xcarchive/Products/Applications/Nuvio.app"
 
           test -d "$APP_PATH"
+          python3 - "$APP_PATH/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], 'rb') as f:
+              info = plistlib.load(f)
+          schemes = info.get('LSApplicationQueriesSchemes', [])
+          assert 'nuvio-player' in schemes, f'No native player query scheme: {schemes!r}'
+          assert 'plezy' not in schemes, f'Old Plezy query scheme: {schemes!r}'
+          print('Validated packaged Nuvio external schemes:', schemes)
+          PY
 
           rm -rf build/Payload
           mkdir -p build/Payload
@@ -78,14 +90,14 @@ jobs:
           cp -R "$APP_PATH" build/Payload/
 
           cd build
-          zip -qry NuvioTVOS-1.0.37-unsigned.ipa Payload
+          zip -qry NuvioTVOS-Native-Only-1.0.37-unsigned.ipa Payload
 
-          test -f NuvioTVOS-1.0.37-unsigned.ipa
+          test -f NuvioTVOS-Native-Only-1.0.37-unsigned.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: NuvioTVOS-1.0.37-unsigned
-          path: build/NuvioTVOS-1.0.37-unsigned.ipa
+          name: NuvioTVOS-Native-Only-unsigned
+          path: build/NuvioTVOS-Native-Only-1.0.37-unsigned.ipa
           if-no-files-found: error
           retention-days: 30

@@ -3,6 +3,11 @@ import XCTest
 @testable import Nuvio
 
 final class ExternalPlayerNuvioNativeTests: XCTestCase {
+    func testPlezyRemovedAndNativePlayerIsVisibleFirst() {
+        XCTAssertNil(ExternalPlayer(rawValue: "plezy"))
+        XCTAssertEqual(ExternalPlayerLauncher.choices.first, .nuvioNative)
+    }
+
     func testDistinctNativePlayerSchemeAndEncodedHandoff() throws {
         XCTAssertTrue(ExternalPlayer.allCases.contains(.nuvioNative))
         XCTAssertEqual(ExternalPlayer.nuvioNative.probeScheme, "nuvio-player")

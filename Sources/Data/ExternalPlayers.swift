@@ -16,7 +16,6 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     case nplayer
     case senplayer
     case nativePlayer = "nativeplayer"
-    case plezy
     case nuvioNative = "nuvio-native"
     case outplayer
 
@@ -29,7 +28,6 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nPlayer"
         case .senplayer: return "SenPlayer"
         case .nativePlayer: return "Native Player"
-        case .plezy: return "Plezy"
         case .nuvioNative: return "Nuvio Player (Native)"
         case .outplayer: return "Outplayer"
         }
@@ -42,7 +40,6 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "Hardware-accelerated, wide format support"
         case .senplayer: return "Dolby Vision and wide-format external playback"
         case .nativePlayer: return "Native tvOS playback with TrueHD Atmos, DTS:X and Dolby Vision"
-        case .plezy: return "Preview seeking and Dolby Vision support (custom Plezy build required)"
         case .nuvioNative: return "Dolby Vision conversion, touch scrubbing and picture controls"
         case .outplayer: return "Lightweight MKV-capable player"
         }
@@ -56,7 +53,6 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nplayer"
         case .senplayer: return "senplayer"
         case .nativePlayer: return "nativeplayer"
-        case .plezy: return "plezy"
         case .nuvioNative: return "nuvio-player"
         case .outplayer: return "outplayer"
         }
@@ -66,7 +62,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     /// take a bare stream URL and nothing else, so a track cannot travel with the hand-off.
     var acceptsSubtitleURL: Bool {
         switch self {
-        case .infuse, .vlc, .nativePlayer, .plezy, .nuvioNative: return true
+        case .infuse, .vlc, .nativePlayer, .nuvioNative: return true
         case .nplayer, .senplayer, .outplayer: return false
         }
     }
@@ -106,17 +102,6 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
             // SenPlayer uses the x-callback-url handoff and expects the stream
             // as the percent-encoded `url` query parameter.
             return URL(string: "senplayer://x-callback-url/play?url=\(encoded)")
-        case .plezy:
-            // Custom Plezy build consumes direct Nuvio streams via a dedicated deep link.
-            // Stock Plezy's existing plezy://play?content_id= handler cannot use this URL.
-            var string = "plezy://stream?url=\(encoded)"
-            if let title, let encodedTitle = title.addingPercentEncoding(
-                withAllowedCharacters: .externalPlayerArgument
-            ) {
-                string += "&title=\(encodedTitle)"
-            }
-            if let encodedSubtitle { string += "&sub=\(encodedSubtitle)" }
-            return URL(string: string)
         case .nuvioNative:
             // Separate standalone UIKit app. Keep signed stream URLs intact.
             var string = "nuvio-player://stream?url=\(encoded)"
@@ -154,8 +139,16 @@ extension CharacterSet {
 
 @MainActor
 enum ExternalPlayerLauncher {
-    /// Players actually installed on this device. An uninstalled player is never offered, so the
-    /// list is short and every entry works.
+    /// Keep the standalone native app discoverable even when tvOS cannot
+    /// query a sideloaded app's custom scheme. Its launch result is still
+    /// checked via UIApplication.open(completionHandler:).
+    static var choices: [ExternalPlayer] {
+        [.nuvioNative] + ExternalPlayer.allCases.filter {
+            $0 != .nuvioNative && isInstalled($0)
+        }
+    }
+
+    /// Only apps confirmed by tvOS's URL-scheme lookup.
     static var installed: [ExternalPlayer] {
         ExternalPlayer.allCases.filter { isInstalled($0) }
     }
@@ -164,7 +157,7 @@ enum ExternalPlayerLauncher {
         // tvOS can report false for some custom URL schemes even when the app is installed.
         // SenPlayer and Native Player both have verified x-callback handoffs, so keep them
         // available in the external-player list.
-        if player == .senplayer || player == .nativePlayer || player == .plezy {
+        if player == .senplayer || player == .nativePlayer {
             return true
         }
 
@@ -185,10 +178,9 @@ enum ExternalPlayerLauncher {
             return false
         }
 
-        // The standalone player is NOT installed merely because its choice is
-        // present in a saved setting. Check the actual registered URL scheme.
-        // Only the legacy custom players retain the old relaxed probe rule.
-        if player != .senplayer && player != .nativePlayer && player != .plezy
+        // Do not block launch of a sideloaded native app when canOpenURL()
+        // cannot detect its registration. UIApplication.open gives real feedback.
+        if player != .senplayer && player != .nativePlayer && player != .nuvioNative
             && !UIApplication.shared.canOpenURL(url) {
             completion?(false)
             return false

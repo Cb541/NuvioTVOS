@@ -830,7 +830,7 @@ struct StreamsView: View {
         guard case .success(let url) = result else { return }
 
         let playback = makePlaybackRequest(stream: stream, url: url)
-        let installed = ExternalPlayerLauncher.installed
+        let installed = ExternalPlayerLauncher.choices
 
         // Where the stream opens: internally, in a chosen external app, or ask each time.
         switch settings.player.playerPreference {
@@ -1289,7 +1289,7 @@ struct ExternalPlayerPicker: View {
     let playback: PlaybackRequest
     let onInternal: () -> Void
 
-    private var installed: [ExternalPlayer] { ExternalPlayerLauncher.installed }
+    private var installed: [ExternalPlayer] { ExternalPlayerLauncher.choices }
     private var forwardsSubtitles: Bool { settings.player.externalPlayerForwardSubtitles }
     private var losesHeaders: Bool { !playback.headers.isEmpty }
 
@@ -1309,7 +1309,7 @@ struct ExternalPlayerPicker: View {
                     footnote: "AVFoundation covers H.264 and HEVC in MP4 and HLS. It cannot open MKV — use an external player for those."
                 ) {
                     SettingsRow(
-                        title: L10n.text("streams.nuvio_player", fallback: "Nuvio player"),
+                        title: "Nuvio player (built-in)",
                         subtitle: "Resume, progress tracking, addon subtitles and auto-play all work here",
                         systemImage: "play.rectangle.fill",
                         action: onInternal
