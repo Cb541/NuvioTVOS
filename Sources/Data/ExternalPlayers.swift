@@ -164,7 +164,7 @@ enum ExternalPlayerLauncher {
         // tvOS can report false for some custom URL schemes even when the app is installed.
         // SenPlayer and Native Player both have verified x-callback handoffs, so keep them
         // available in the external-player list.
-        if player == .senplayer || player == .nativePlayer || player == .plezy || player == .nuvioNative {
+        if player == .senplayer || player == .nativePlayer || player == .plezy {
             return true
         }
 
@@ -177,17 +177,32 @@ enum ExternalPlayerLauncher {
         _ player: ExternalPlayer,
         stream: String,
         title: String?,
-        subtitleURL: String? = nil
+        subtitleURL: String? = nil,
+        completion: ((Bool) -> Void)? = nil
     ) -> Bool {
         guard let url = player.playbackURL(for: stream, title: title, subtitleURL: subtitleURL) else {
+            completion?(false)
             return false
         }
 
-        if player != .senplayer && player != .nativePlayer && player != .plezy && player != .nuvioNative && !UIApplication.shared.canOpenURL(url) {
+        // The standalone player is NOT installed merely because its choice is
+        // present in a saved setting. Check the actual registered URL scheme.
+        // Only the legacy custom players retain the old relaxed probe rule.
+        if player != .senplayer && player != .nativePlayer && player != .plezy
+            && !UIApplication.shared.canOpenURL(url) {
+            completion?(false)
             return false
         }
 
-        UIApplication.shared.open(url)
+        // Never claim playback launched before tvOS reports whether the URL
+        // was handled. This is particularly important for unsigned/sideloaded
+        // standalone apps: absent registration previously failed silently.
+        UIApplication.shared.open(url, options: [:]) { success in
+            if !success {
+                NSLog("Nuvio: external player launch rejected for %@", player.rawValue)
+            }
+            completion?(success)
+        }
         return true
     }
 }
