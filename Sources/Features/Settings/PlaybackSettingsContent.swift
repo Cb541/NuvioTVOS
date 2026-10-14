@@ -672,8 +672,8 @@ struct ExternalPlayerSettingsCard: View {
             title: L10n.text("settings.playback.external_player", fallback: "External player"),
             footnote: """
             AVFoundation plays H.264 and HEVC in MP4 and HLS but cannot open MKV, which a lot of \
-            debrid sources use. Handing those to Infuse, VLC, nPlayer, SenPlayer, Native Player or Outplayer works. The \
-            cost: a hand-off carries only a URL, so per-stream request headers are lost and Nuvio \
+            debrid sources use. Supported external players can handle those links. Neptune is an experimental \
+            launch probe with no documented direct-stream support. A hand-off carries only a URL, so request headers are lost and Nuvio \
             stops tracking progress once another app takes over.
             """
         ) {
@@ -687,7 +687,7 @@ struct ExternalPlayerSettingsCard: View {
                 SettingsToggle(
                     title: L10n.text("settings.playback.send_subtitle", fallback: "Send the subtitle track"),
                     subtitle: installed.contains(where: \.acceptsSubtitleURL)
-                        ? L10n.text("settings.playback.send_subtitle_sub", fallback: "Infuse, VLC and Native Player accept one; nPlayer, SenPlayer and Outplayer take the video URL only")
+                        ? L10n.text("settings.playback.send_subtitle_sub", fallback: "Infuse, VLC and Native Player accept one; Neptune has no verified subtitle handoff")
                         : L10n.text("settings.playback.no_subtitle_support", fallback: "Neither installed player accepts a subtitle URL"),
                     systemImage: "captions.bubble",
                     isOn: $player.externalPlayerForwardSubtitles
