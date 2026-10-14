@@ -177,7 +177,7 @@ enum ExternalPlayerLauncher {
             let urls: [URL] = [
                 url,
                 URL(string: url.absoluteString.replacingOccurrences(
-                    of: "neptune://", with: "neptuneplayer://", range: url.absoluteString.startIndex..<url.absoluteString.endIndex
+                    of: "neptune://", with: "neptuneplayer://"
                 ))
             ].compactMap { $0 }
             guard let supported = urls.first(where: { UIApplication.shared.canOpenURL($0) }) else {
