@@ -2,6 +2,9 @@ name: Build unsigned tvOS IPA
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - plezy-external-player-1.0.37
 
 jobs:
   build:
