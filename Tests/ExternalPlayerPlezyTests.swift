@@ -6,8 +6,8 @@ final class ExternalPlayerPlezyTests: XCTestCase {
     func testPlezyIsOfferedAsExternalPlayer() {
         XCTAssertTrue(ExternalPlayer.allCases.contains(.plezy))
         XCTAssertNil(ExternalPlayer(rawValue: "neptune"), "Neptune must not appear in the Plezy-only build")
-        XCTAssertEqual(ExternalPlayer.plezy.displayName, "Plezy")
-        XCTAssertEqual(ExternalPlayer.plezy.probeScheme, "plezy")
+        XCTAssertEqual(ExternalPlayer.plezy.displayName, "Nuvio Player")
+        XCTAssertEqual(ExternalPlayer.plezy.probeScheme, "nuvio-player")
         XCTAssertTrue(ExternalPlayer.plezy.acceptsSubtitleURL)
     }
 
@@ -18,7 +18,7 @@ final class ExternalPlayerPlezyTests: XCTestCase {
             title: "Movie & More",
             subtitleURL: "https://subs.example/en.srt?key=1&lang=en"
         ))
-        XCTAssertEqual(link.scheme, "plezy")
+        XCTAssertEqual(link.scheme, "nuvio-player")
         XCTAssertEqual(link.host, "stream")
         let items = try XCTUnwrap(URLComponents(url: link, resolvingAgainstBaseURL: false)?.queryItems)
         XCTAssertEqual(items.first(where: { $0.name == "url" })?.value, signed)
