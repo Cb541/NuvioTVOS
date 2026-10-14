@@ -833,7 +833,11 @@ struct StreamsView: View {
 
         case .externalPlayer:
             let preferred = ExternalPlayer(rawValue: settings.player.preferredExternalPlayer)
-            if let preferred, installed.contains(preferred) {
+            if preferred == .neptune {
+                // Always show the chooser for the experimental probe, so a missing handler
+                // can be reported instead of silently abandoning the playback request.
+                handOff = HandOffRequest(playback: playback)
+            } else if let preferred, installed.contains(preferred) {
                 ExternalPlayerLauncher.open(
                     preferred, stream: url, title: request.title,
                     subtitleURL: forwardedSubtitleURL
@@ -1281,6 +1285,8 @@ struct ExternalPlayerPicker: View {
     private var installed: [ExternalPlayer] { ExternalPlayerLauncher.installed }
     private var forwardsSubtitles: Bool { settings.player.externalPlayerForwardSubtitles }
     private var losesHeaders: Bool { !playback.headers.isEmpty }
+    @State private var showHandoffError = false
+    @State private var failedPlayer: ExternalPlayer?
 
     var body: some View {
         NuvioScreenBackground {
@@ -1317,13 +1323,18 @@ struct ExternalPlayerPicker: View {
                             subtitle: player.summary,
                             systemImage: "arrow.up.forward.app",
                             action: {
-                                ExternalPlayerLauncher.open(
+                                let requested = ExternalPlayerLauncher.open(
                                     player,
                                     stream: playback.streamURL,
                                     title: playback.title,
                                     subtitleURL: forwardsSubtitles ? playback.subtitles.first?.url : nil
                                 )
-                                dismiss()
+                                if requested {
+                                    dismiss()
+                                } else {
+                                    failedPlayer = player
+                                    showHandoffError = true
+                                }
                             }
                         )
                     }
@@ -1337,6 +1348,13 @@ struct ExternalPlayerPicker: View {
                 }
                 .buttonStyle(NuvioPillButtonStyle(emphasis: .secondary))
             }
+        }
+        .alert("External player could not be opened", isPresented: $showHandoffError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(failedPlayer == .neptune
+                 ? "Neptune may be installed but does not appear to register neptune:// or neptuneplayer://. Nuvio can only hand off a direct stream if Neptune explicitly accepts a compatible URL scheme."
+                 : "This player did not register a supported URL handler on this Apple TV.")
         }
     }
 }

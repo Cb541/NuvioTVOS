@@ -42,6 +42,8 @@
 		<string>nplayer</string>
         <string>senplayer</string>
         <string>nativeplayer</string>
+        <string>neptune</string>
+        <string>neptuneplayer</string>
 		<string>outplayer</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
