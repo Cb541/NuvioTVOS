@@ -16,6 +16,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     case nplayer
     case senplayer
     case nativePlayer = "nativeplayer"
+    case neptune
     case outplayer
 
     var id: String { rawValue }
@@ -27,6 +28,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nPlayer"
         case .senplayer: return "SenPlayer"
         case .nativePlayer: return "Native Player"
+        case .neptune: return "Neptune (Experimental)"
         case .outplayer: return "Outplayer"
         }
     }
@@ -38,6 +40,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "Hardware-accelerated, wide format support"
         case .senplayer: return "Dolby Vision and wide-format external playback"
         case .nativePlayer: return "Native tvOS playback with TrueHD Atmos, DTS:X and Dolby Vision"
+        case .neptune: return "Test Nuvio URL handoff; Neptune direct-stream support is unverified"
         case .outplayer: return "Lightweight MKV-capable player"
         }
     }
@@ -50,6 +53,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nplayer"
         case .senplayer: return "senplayer"
         case .nativePlayer: return "nativeplayer"
+        case .neptune: return "neptune"
         case .outplayer: return "outplayer"
         }
     }
@@ -59,7 +63,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     var acceptsSubtitleURL: Bool {
         switch self {
         case .infuse, .vlc, .nativePlayer: return true
-        case .nplayer, .senplayer, .outplayer: return false
+        case .nplayer, .senplayer, .neptune, .outplayer: return false
         }
     }
 
@@ -98,6 +102,16 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
             // SenPlayer uses the x-callback-url handoff and expects the stream
             // as the percent-encoded `url` query parameter.
             return URL(string: "senplayer://x-callback-url/play?url=\(encoded)")
+        case .neptune:
+            // EXPERIMENTAL: Neptune has not published a verified direct-stream URI scheme.
+            // Try a plausible URI ONLY as a capability test; recognition/playback is not guaranteed.
+            var string = "neptune://play?url=\(encoded)"
+            if let title, let encodedTitle = title.addingPercentEncoding(
+                withAllowedCharacters: .externalPlayerArgument
+            ) {
+                string += "&title=\(encodedTitle)"
+            }
+            return URL(string: string)
         case .nativePlayer:
             // Native Player mirrors Infuse's x-callback handoff. Title and an optional
             // sidecar subtitle can travel with the resolved stream URL.
@@ -127,8 +141,8 @@ extension CharacterSet {
 
 @MainActor
 enum ExternalPlayerLauncher {
-    /// Players actually installed on this device. An uninstalled player is never offered, so the
-    /// list is short and every entry works.
+    /// Detected installed players, plus explicit experimental launch probes.
+    /// Neptune appears regardless of scheme detection so users can test unsupported handoffs.
     static var installed: [ExternalPlayer] {
         ExternalPlayer.allCases.filter { isInstalled($0) }
     }
@@ -137,7 +151,7 @@ enum ExternalPlayerLauncher {
         // tvOS can report false for some custom URL schemes even when the app is installed.
         // SenPlayer and Native Player both have verified x-callback handoffs, so keep them
         // available in the external-player list.
-        if player == .senplayer || player == .nativePlayer {
+        if player == .senplayer || player == .nativePlayer || player == .neptune {
             return true
         }
 
@@ -154,6 +168,23 @@ enum ExternalPlayerLauncher {
     ) -> Bool {
         guard let url = player.playbackURL(for: stream, title: title, subtitleURL: subtitleURL) else {
             return false
+        }
+
+        if player == .neptune {
+            // Neither the URL scheme nor direct stream playback is documented by Neptune.
+            // Probe both likely scheme names, with an explicit negative result when neither
+            // is registered. Nuvio's picker keeps an error visible instead of disappearing.
+            let urls: [URL] = [
+                url,
+                URL(string: url.absoluteString.replacingOccurrences(
+                    of: "neptune://", with: "neptuneplayer://", range: url.absoluteString.startIndex..<url.absoluteString.endIndex
+                ))
+            ].compactMap { $0 }
+            guard let supported = urls.first(where: { UIApplication.shared.canOpenURL($0) }) else {
+                return false
+            }
+            UIApplication.shared.open(supported)
+            return true
         }
 
         if player != .senplayer && player != .nativePlayer && !UIApplication.shared.canOpenURL(url) {
