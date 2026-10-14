@@ -17,6 +17,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     case senplayer
     case nativePlayer = "nativeplayer"
     case plezy
+    case nuvioNative = "nuvio-native"
     case outplayer
 
     var id: String { rawValue }
@@ -29,6 +30,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .senplayer: return "SenPlayer"
         case .nativePlayer: return "Native Player"
         case .plezy: return "Plezy"
+        case .nuvioNative: return "Nuvio Player (Native)"
         case .outplayer: return "Outplayer"
         }
     }
@@ -41,6 +43,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .senplayer: return "Dolby Vision and wide-format external playback"
         case .nativePlayer: return "Native tvOS playback with TrueHD Atmos, DTS:X and Dolby Vision"
         case .plezy: return "Preview seeking and Dolby Vision support (custom Plezy build required)"
+        case .nuvioNative: return "Dolby Vision conversion, touch scrubbing and picture controls"
         case .outplayer: return "Lightweight MKV-capable player"
         }
     }
@@ -54,6 +57,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .senplayer: return "senplayer"
         case .nativePlayer: return "nativeplayer"
         case .plezy: return "plezy"
+        case .nuvioNative: return "nuvio-player"
         case .outplayer: return "outplayer"
         }
     }
@@ -62,7 +66,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     /// take a bare stream URL and nothing else, so a track cannot travel with the hand-off.
     var acceptsSubtitleURL: Bool {
         switch self {
-        case .infuse, .vlc, .nativePlayer, .plezy: return true
+        case .infuse, .vlc, .nativePlayer, .plezy, .nuvioNative: return true
         case .nplayer, .senplayer, .outplayer: return false
         }
     }
@@ -113,6 +117,14 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
             }
             if let encodedSubtitle { string += "&sub=\(encodedSubtitle)" }
             return URL(string: string)
+        case .nuvioNative:
+            // Separate standalone UIKit app. Keep signed stream URLs intact.
+            var string = "nuvio-player://stream?url=\(encoded)"
+            if let title, let encodedTitle = title.addingPercentEncoding(
+                withAllowedCharacters: .externalPlayerArgument
+            ) { string += "&title=\(encodedTitle)" }
+            if let encodedSubtitle { string += "&sub=\(encodedSubtitle)" }
+            return URL(string: string)
         case .nativePlayer:
             // Native Player mirrors Infuse's x-callback handoff. Title and an optional
             // sidecar subtitle can travel with the resolved stream URL.
@@ -152,7 +164,7 @@ enum ExternalPlayerLauncher {
         // tvOS can report false for some custom URL schemes even when the app is installed.
         // SenPlayer and Native Player both have verified x-callback handoffs, so keep them
         // available in the external-player list.
-        if player == .senplayer || player == .nativePlayer || player == .plezy {
+        if player == .senplayer || player == .nativePlayer || player == .plezy || player == .nuvioNative {
             return true
         }
 
@@ -171,7 +183,7 @@ enum ExternalPlayerLauncher {
             return false
         }
 
-        if player != .senplayer && player != .nativePlayer && player != .plezy && !UIApplication.shared.canOpenURL(url) {
+        if player != .senplayer && player != .nativePlayer && player != .plezy && player != .nuvioNative && !UIApplication.shared.canOpenURL(url) {
             return false
         }
 

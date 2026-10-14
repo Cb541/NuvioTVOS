@@ -6,6 +6,7 @@ on:
     branches:
       - plezy-external-player-1.0.37
       - plezy-only-no-neptune-1.0.37
+      - standalone-native-player-1.0.37
 
 jobs:
   build:
@@ -40,6 +41,8 @@ jobs:
       - name: Verify Plezy-only player list (no Neptune)
         run: |
           grep -q 'case plezy' Sources/Data/ExternalPlayers.swift
+          grep -q 'case nuvioNative' Sources/Data/ExternalPlayers.swift
+          grep -q 'nuvio-player' Sources/App/Info.plist
           if grep -iq 'neptune' Sources/Data/ExternalPlayers.swift Sources/App/Info.plist; then
             echo 'Unexpected Neptune support in Plezy-only build'
             exit 1
