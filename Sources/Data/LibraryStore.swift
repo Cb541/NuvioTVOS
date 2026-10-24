@@ -58,10 +58,18 @@ struct ContinueWatchingEntry: Identifiable, Hashable {
 
 // MARK: - Store
 
+/// The last season actually opened for playback, including handoffs to
+/// players that cannot report their playback position back to Nuvio.
+private struct RecentPlayedSeason: Codable {
+    var season: Int
+    var updatedAt: Date
+}
+
 @Observable
 @MainActor
 final class LibraryStore {
     private(set) var progress: [String: WatchProgress] = [:]
+    private var playedSeasons: [String: RecentPlayedSeason] = [:]
     private(set) var library: [SavedLibraryItem] = []
     /// Artwork cache so Continue Watching can render without refetching every meta.
     private(set) var previewCache: [String: MetaPreview] = [:]
@@ -76,6 +84,11 @@ final class LibraryStore {
     private(set) var pendingProgressDeletions: [String] = []
 
     private let progressFile = JSONFileStore<[String: WatchProgress]>(filename: "watch-progress.json")
+    // This must not be purged with playback cache: it also tracks external
+    // player launches, where Nuvio receives no subsequent WatchProgress.
+    private let playedSeasonsFile = JSONFileStore<[String: RecentPlayedSeason]>(
+        filename: "recent-played-seasons.json", durability: .critical
+    )
     private let libraryFile = JSONFileStore<[SavedLibraryItem]>(filename: "library.json")
     private let previewFile = JSONFileStore<[String: MetaPreview]>(filename: "preview-cache.json")
     private let thumbnailFile = JSONFileStore<[String: String]>(filename: "episode-thumbnails.json")
@@ -96,6 +109,7 @@ final class LibraryStore {
 
     init() {
         progress = progressFile.load() ?? [:]
+        playedSeasons = playedSeasonsFile.load() ?? [:]
         library = libraryFile.load() ?? []
         previewCache = previewFile.load() ?? [:]
         episodeThumbnails = thumbnailFile.load() ?? [:]
@@ -108,6 +122,34 @@ final class LibraryStore {
     // MARK: Progress
 
     func progress(forVideoId videoId: String) -> WatchProgress? { progress[videoId] }
+
+    /// Called when a resolved episode stream is opened, including external
+    /// player handoffs. Unlike WatchProgress, no duration or native player
+    /// callback is needed to retain the most recently played season.
+    func rememberPlayedSeason(contentId: String, contentType: String, season: Int?) {
+        guard let season, season >= 0, !contentId.isEmpty,
+              contentType == "series" else { return }
+        let key = "\(contentType)|\(contentId)"
+        playedSeasons[key] = RecentPlayedSeason(season: season, updatedAt: Date())
+        playedSeasonsFile.save(playedSeasons)
+    }
+
+    /// Actual watch-progress timestamps and external-player launch timestamps
+    /// are comparable. The most recent wins. Existing users' watch histories
+    /// therefore work immediately without any migration.
+    func lastPlayedSeason(contentId: String, contentType: String) -> Int? {
+        guard !contentId.isEmpty, contentType == "series" else { return nil }
+        let saved = playedSeasons["\(contentType)|\(contentId)"]
+        let latestProgress = progress.values
+            .filter { $0.contentId == contentId &&
+                      $0.contentType == contentType && $0.season != nil }
+            .max { $0.updatedAt < $1.updatedAt }
+        if let latestProgress,
+           saved == nil || latestProgress.updatedAt > saved!.updatedAt {
+            return latestProgress.season
+        }
+        return saved?.season ?? latestProgress?.season
+    }
 
     func record(
         contentId: String,
