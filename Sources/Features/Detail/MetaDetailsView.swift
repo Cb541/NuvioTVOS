@@ -23,6 +23,7 @@ struct MetaDetailsView: View {
     /// The long-press overlay on an episode. Held here rather than on the router because it is
     /// only reachable from this screen and dies with it.
     @State private var episodeOptions: EpisodeOptionsRequest?
+    @State private var didSeedSeason = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -47,6 +48,9 @@ struct MetaDetailsView: View {
         .background(colors.background)
         .customPosterScreen(.details, settings: settings)
         .task { await model.load(request: request, addonStore: addons, settings: settings) }
+        .onChange(of: model.meta?.id, initial: true) { _, _ in
+            seedSeason()
+        }
         // The episode list is what lets Continue Watching offer the *next* episode once one is
         // finished, and the rail is drawn before any addon could answer. Cached here rather than
         // fetched there. See `NextUpProjection`.
@@ -106,6 +110,7 @@ struct MetaDetailsView: View {
                     EpisodesSection(
                         model: model,
                         meta: meta,
+                        resumeEpisodeId: resumeEpisodeId(meta),
                         onPlay: playEpisode,
                         onLongPress: { episodeOptions = .init(video: $0, meta: meta) }
                     )
@@ -259,6 +264,30 @@ struct MetaDetailsView: View {
             scrapers: plugins.enabledScrapers,
             isLoaded: !manifests.isEmpty
         )
+    }
+
+    /// Select the watched season when entering a series, but never override
+    /// a season the viewer manually chooses after arrival.
+    private func seedSeason() {
+        guard !didSeedSeason, let meta = model.meta,
+              meta.type == .series, !model.seasons.isEmpty else { return }
+        didSeedSeason = true
+        if let season = nextUpEpisode()?.season, model.seasons.contains(season) {
+            model.selectedSeason = season
+        }
+    }
+
+    private func nextUpEpisode() -> Video? {
+        model.nextUpEpisode(library: library,
+            threshold: settings.watchedThreshold,
+            fromFurthest: settings.layout.nextUpFromFurthestEpisode,
+            includeUnaired: settings.layout.showUnairedNextUp)
+    }
+
+    private func resumeEpisodeId(_ meta: Meta) -> String? {
+        guard meta.type == .series, let episode = nextUpEpisode(),
+              episode.season == model.selectedSeason else { return nil }
+        return episode.id
     }
 
     private func playTarget(_ meta: Meta) -> Video? {
@@ -547,6 +576,7 @@ struct EpisodesSection: View {
 
     let model: MetaDetailsViewModel
     let meta: Meta
+    let resumeEpisodeId: String?
     let onPlay: (Video) -> Void
     let onLongPress: (Video) -> Void
 
@@ -639,9 +669,10 @@ struct EpisodesSection: View {
                 .foregroundStyle(colors.textPrimary)
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: NuvioTheme.components.row.itemSpacing) {
-                    ForEach(model.episodes) { episode in
+            ScrollViewReader { scroller in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: NuvioTheme.components.row.itemSpacing) {
+                        ForEach(model.episodes) { episode in
                         EpisodeCard(
                             video: episode,
                             fallbackImage: meta.backdropUrl,
@@ -660,12 +691,20 @@ struct EpisodesSection: View {
                             action: { onPlay(episode) },
                             onLongPress: { onLongPress(episode) }
                         )
+                        .id(episode.id)
                     }
                 }
                 .padding(.horizontal, NuvioTheme.components.row.horizontalPadding)
                 .padding(.vertical, NuvioTheme.spacing.sm)
             }
-            .scrollClipDisabled()
+                .scrollClipDisabled()
+                .onChange(of: resumeEpisodeId, initial: true) { _, id in
+                    scrollToResume(id, within: model.episodes, proxy: scroller)
+                }
+                .onChange(of: model.episodes.map(\.id)) { _, _ in
+                    scrollToResume(resumeEpisodeId, within: model.episodes, proxy: scroller)
+                }
+            }
         }
         .focusSection()
         // Cache the stills so the Continue Watching rail can show the episode the viewer
@@ -680,6 +719,16 @@ struct EpisodesSection: View {
         // otherwise mean twenty requests to fill a rail the viewer never scrolls to.
         .task(id: model.selectedSeason) {
             await model.enrichEpisodes(season: model.selectedSeason, settings: settings)
+        }
+    }
+
+    private func scrollToResume(_ id: String?, within videos: [Video],
+                                proxy: ScrollViewProxy) {
+        guard let id, videos.contains(where: { $0.id == id }) else { return }
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.23)) {
+                proxy.scrollTo(id, anchor: .leading)
+            }
         }
     }
 }
