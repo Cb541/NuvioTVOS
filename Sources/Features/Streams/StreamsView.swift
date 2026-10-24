@@ -856,7 +856,7 @@ struct StreamsView: View {
                     subtitleURL: forwardedSubtitleURL,
                     contentId: request.contentId,
                     videoId: request.videoId,
-                    artworkURL: request.backdrop ?? request.poster,
+                    artworkURL: request.poster ?? request.backdrop,
                     resumeSeconds: library.progress(forVideoId: request.videoId)?.positionSeconds
                 )
             } else if !installed.isEmpty {
@@ -1346,7 +1346,7 @@ struct ExternalPlayerPicker: View {
                                     subtitleURL: forwardsSubtitles ? playback.subtitles.first?.url : nil,
                                     contentId: playback.contentId,
                                     videoId: playback.videoId,
-                                    artworkURL: playback.backdrop ?? playback.poster,
+                                    artworkURL: playback.poster ?? playback.backdrop,
                                     resumeSeconds: library.progress(forVideoId: playback.videoId)?.positionSeconds
                                 )
                                 dismiss()
