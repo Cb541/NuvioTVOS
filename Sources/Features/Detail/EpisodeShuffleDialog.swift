@@ -32,7 +32,7 @@ struct EpisodeShuffleDialog: View {
             VStack(alignment: .leading, spacing: NuvioTheme.spacing.lg) {
                 VStack(alignment: .leading, spacing: NuvioTheme.spacing.xxs) {
                     Text(L10n.text("detail.shuffle", fallback: "Shuffle"))
-                        .nuvioText(NuvioTypography.headlineLarge)
+                        .nuvioText(NuvioTextStyles.sectionTitle)
                         .foregroundStyle(colors.textPrimary)
                     Text(subtitle)
                         .nuvioText(NuvioTextStyles.metadata)
