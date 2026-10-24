@@ -2,9 +2,6 @@ name: Build unsigned tvOS IPA
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/original-1.0.37-ui-updates
 
 jobs:
   build:
