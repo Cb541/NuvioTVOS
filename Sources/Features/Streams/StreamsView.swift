@@ -604,6 +604,8 @@ struct StreamsView: View {
                 }
             }
 
+            resumePill
+
             if model.totalCount > 0 {
                 Text("\(model.totalCount) sources\(model.filteredOutCount > 0 ? " · \(model.filteredOutCount) filtered" : "")")
                     .nuvioText(NuvioTextStyles.metadata)
@@ -613,6 +615,21 @@ struct StreamsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, NuvioTheme.layout.tvSafeHorizontal)
         .padding(.vertical, NuvioTheme.layout.tvSafeVertical)
+    }
+
+    /// Show the resume point for the selected film or individual episode.
+    @ViewBuilder
+    private var resumePill: some View {
+        if let progress = library.progress(forVideoId: request.videoId),
+           progress.fraction > 0, progress.fraction < 1 {
+            VStack(alignment: .leading, spacing: NuvioTheme.spacing.xs) {
+                WatchProgressBar(fraction: progress.fraction)
+                Text(progress.remainingLabel)
+                    .nuvioText(NuvioTextStyles.metadata)
+                    .foregroundStyle(colors.textSecondary)
+            }
+            .frame(maxWidth: dp(420))
+        }
     }
 
     private var sourcePicker: some View {
