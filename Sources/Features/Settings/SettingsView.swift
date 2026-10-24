@@ -669,6 +669,15 @@ struct LayoutSettingsContent: View {
                 }
             }
 
+            SettingsCard(title: L10n.text("settings.layout.random_episode", fallback: "Shuffle episodes")) {
+                SettingsToggle(
+                    title: L10n.text("settings.layout.random_episode_enabled", fallback: "Enable episode shuffle"),
+                    subtitle: L10n.text("settings.layout.random_episode_hint",
+                        fallback: "Add a Shuffle button to TV series pages"),
+                    isOn: $layout.randomEpisodeEnabled
+                )
+            }
+
             SettingsCard(title: L10n.text("settings.layout.episode_overlay", fallback: "Episode options overlay")) {
                 SettingsOptionRow(
                     title: L10n.text("settings.layout.episode_overlay_style", fallback: "Appearance"),
