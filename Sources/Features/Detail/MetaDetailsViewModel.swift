@@ -78,7 +78,12 @@ final class MetaDetailsViewModel {
         return watchable.first { !isWatched($0) } ?? watchable.first
     }
 
-    func load(request: DetailRequest, addonStore: AddonStore, settings: AppSettings) async {
+    func load(
+        request: DetailRequest,
+        addonStore: AddonStore,
+        settings: AppSettings,
+        library: LibraryStore? = nil
+    ) async {
         isLoading = true
         error = nil
         defer { isLoading = false }
@@ -125,9 +130,19 @@ final class MetaDetailsViewModel {
             if let resolved = try? await client.fetchMeta(
                 addon: addon, type: request.itemType, id: request.itemId
             ) {
-                meta = resolved
+                // Restore the last season launched, even when playback went
+                // to the standalone Apple TV app and no progress was synced
+                // back. Initialize before publishing meta to SwiftUI so the
+                // first rendered episode row is already on the right season.
+                let previous = meta?.id == resolved.id ? selectedSeason : nil
+                let remembered = library?.lastPlayedSeason(
+                    contentId: resolved.id, contentType: resolved.apiType
+                )
+                let wanted = previous ?? remembered
+                selectedSeason = wanted.flatMap { resolved.seasons.contains($0) ? $0 : nil }
+                    ?? resolved.seasons.first ?? 1
                 seasonPosters = resolved.seasonPosters ?? [:]
-                selectedSeason = resolved.seasons.first ?? 1
+                meta = resolved
                 // Enrichment runs after the meta is on screen so the hero never waits on it.
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask { @MainActor in
