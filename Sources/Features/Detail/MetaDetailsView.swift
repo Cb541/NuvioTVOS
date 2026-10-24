@@ -41,7 +41,10 @@ struct MetaDetailsView: View {
                     content(meta: meta, size: proxy.size)
                 } else {
                     ErrorStateView(message: model.error ?? L10n.text("detail.unknown_error", fallback: "Unknown error")) {
-                        Task { await model.load(request: request, addonStore: addons, settings: settings) }
+                        Task {
+                            await model.load(request: request, addonStore: addons,
+                                             settings: settings, library: library)
+                        }
                     }
                 }
             }
@@ -51,7 +54,8 @@ struct MetaDetailsView: View {
         .customPosterScreen(.details, settings: settings)
         .task {
             shuffle.beginVisit(contentId: request.id)
-            await model.load(request: request, addonStore: addons, settings: settings)
+            await model.load(request: request, addonStore: addons,
+                             settings: settings, library: library)
         }
         .onChange(of: model.meta?.id, initial: true) { _, _ in
             seedSeason()
@@ -291,7 +295,15 @@ struct MetaDetailsView: View {
         guard !didSeedSeason, let meta = model.meta,
               meta.type == .series, !model.seasons.isEmpty else { return }
         didSeedSeason = true
-        if let season = nextUpEpisode()?.season, model.seasons.contains(season) {
+        // Explicitly played episodes outrank the next-unwatched projection.
+        // Next Up alone falls back to S1E1 when Nuvio has no progress because
+        // the viewer used the standalone external Apple TV player.
+        if let played = library.lastPlayedSeason(
+            contentId: meta.id, contentType: meta.apiType
+        ), model.seasons.contains(played) {
+            model.selectedSeason = played
+        } else if let season = nextUpEpisode()?.season,
+                  model.seasons.contains(season) {
             model.selectedSeason = season
         }
     }
