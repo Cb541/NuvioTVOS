@@ -1251,6 +1251,7 @@
 // 1.0.37 additive episode shuffle and resume UI strings
 "card.remaining_minutes" = "%@ min left";
 "detail.play_episode" = "Play %@";
+"detail.resume" = "Resume";
 "detail.shuffle" = "Shuffle";
 "detail.shuffle_play" = "Shuffle %@";
 "detail.shuffle_enabled" = "Shuffle episodes";
