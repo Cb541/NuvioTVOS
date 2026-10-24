@@ -9,6 +9,7 @@ struct MetaDetailsView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(Router.self) private var router
     @Environment(PluginStore.self) private var plugins
+    @Environment(EpisodeShuffleStore.self) private var shuffle
 
     let request: DetailRequest
 
@@ -24,6 +25,7 @@ struct MetaDetailsView: View {
     /// only reachable from this screen and dies with it.
     @State private var episodeOptions: EpisodeOptionsRequest?
     @State private var didSeedSeason = false
+    @State private var showsShuffleOptions = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -47,7 +49,10 @@ struct MetaDetailsView: View {
         .ignoresSafeArea()
         .background(colors.background)
         .customPosterScreen(.details, settings: settings)
-        .task { await model.load(request: request, addonStore: addons, settings: settings) }
+        .task {
+            shuffle.beginVisit(contentId: request.id)
+            await model.load(request: request, addonStore: addons, settings: settings)
+        }
         .onChange(of: model.meta?.id, initial: true) { _, _ in
             seedSeason()
         }
@@ -65,8 +70,22 @@ struct MetaDetailsView: View {
                     onPlay: { playEpisode($0) },
                     onDismiss: { episodeOptions = nil }
                 )
+            } else if showsShuffleOptions {
+                EpisodeShuffleDialog(
+                    contentId: request.id,
+                    offering: shuffleOfferingLabel,
+                    onDismiss: { showsShuffleOptions = false }
+                )
             }
         }
+    }
+
+    private var shuffleOfferingLabel: String? {
+        guard let meta = model.meta,
+              let video = shuffledTarget(meta),
+              let season = video.season, let episode = video.episode else { return nil }
+        let code = String(format: "S%02dE%02d", season, episode)
+        return code + ((video.name ?? video.title)?.nilIfBlank.map { " · " + $0 } ?? "")
     }
 
     // MARK: Backdrop
@@ -290,14 +309,40 @@ struct MetaDetailsView: View {
         return episode.id
     }
 
+    private var isShuffling: Bool {
+        shuffle.isShuffling(contentId: request.id,
+            type: model.meta?.type ?? .unknown,
+            isAvailable: settings.layout.randomEpisodeEnabled)
+    }
+
+    private func inProgressEpisode(_ meta: Meta) -> Video? {
+        meta.videos.compactMap { video -> (Video, WatchProgress)? in
+            guard let progress = library.progress(forVideoId: video.id),
+                  progress.fraction > 0.01,
+                  !progress.isFinished(threshold: settings.watchedThreshold)
+            else { return nil }
+            return (video, progress)
+        }.max { $0.1.updatedAt < $1.1.updatedAt }?.0
+    }
+
+    private func shuffledTarget(_ meta: Meta) -> Video? {
+        guard isShuffling else { return nil }
+        if let pending = inProgressEpisode(meta) { return pending }
+        let watched = Set(meta.watchableEpisodes().filter {
+            library.isWatched(videoId: $0.id, threshold: settings.watchedThreshold)
+        }.map(\.id))
+        return shuffle.episode(
+            surface: .detail,
+            contentId: request.id,
+            videos: meta.watchableEpisodes(includeUnaired: settings.layout.showUnairedNextUp),
+            watched: watched,
+            includesWatched: shuffle.settings(forContentId: request.id).includesWatched
+        )
+    }
+
     private func playTarget(_ meta: Meta) -> Video? {
         guard meta.type == .series else { return nil }
-        return model.nextUpEpisode(
-            library: library,
-            threshold: settings.watchedThreshold,
-            fromFurthest: settings.layout.nextUpFromFurthestEpisode,
-            includeUnaired: settings.layout.showUnairedNextUp
-        )
+        return (isShuffling ? shuffledTarget(meta) : nil) ?? (!isShuffling ? nextUpEpisode() : nil)
     }
 
     private func canPlay(_ meta: Meta) -> Bool {
@@ -324,6 +369,19 @@ struct MetaDetailsView: View {
             // The hero action may be disabled safely because Add to Library remains focusable.
             // Episode cards stay focusable and gate their action separately.
             .disabled(!canPlay(meta))
+
+            if meta.type == .series, settings.layout.randomEpisodeEnabled {
+                Button(action: { showsShuffleOptions = true }) {
+                    HStack(spacing: NuvioTheme.spacing.sm) {
+                        Image(systemName: "shuffle")
+                        Text(L10n.text("detail.shuffle", fallback: "Shuffle"))
+                    }
+                    .nuvioText(NuvioTextStyles.button)
+                    .padding(.horizontal, NuvioTheme.spacing.xl)
+                    .frame(height: NuvioTheme.components.buttonHeight)
+                }
+                .buttonStyle(NuvioPillButtonStyle(emphasis: .secondary, selected: isShuffling))
+            }
 
             Button(action: { toggleLibrary(meta) }) {
                 HStack(spacing: NuvioTheme.spacing.sm) {
@@ -441,21 +499,22 @@ struct MetaDetailsView: View {
 
     private func playLabel(_ meta: Meta) -> String {
         if meta.type == .series {
-            if let next = model.nextUpEpisode(
-                library: library,
-                threshold: settings.watchedThreshold,
-                fromFurthest: settings.layout.nextUpFromFurthestEpisode,
-                includeUnaired: settings.layout.showUnairedNextUp
-            ),
-               let season = next.season, let episode = next.episode {
-                return String(format: "Play S%02dE%02d", season, episode)
+            guard let target = playTarget(meta),
+                  let season = target.season, let episode = target.episode else {
+                return isShuffling
+                    ? L10n.text("detail.shuffle_exhausted", fallback: "No episodes left")
+                    : L10n.text("detail.play", fallback: "Play")
             }
-            return "Play"
+            let code = String(format: "S%02dE%02d", season, episode)
+            if isShuffling, inProgressEpisode(meta) == nil {
+                return L10n.format("detail.shuffle_play", fallback: "Shuffle %@", code)
+            }
+            return L10n.format("detail.play_episode", fallback: "Play %@", code)
         }
         if let progress = library.progress(forVideoId: meta.id), progress.fraction > 0.01 {
-            return "Resume"
+            return L10n.text("detail.resume", fallback: "Resume")
         }
-        return "Play"
+        return L10n.text("detail.play", fallback: "Play")
     }
 
     // MARK: Actions
@@ -463,14 +522,8 @@ struct MetaDetailsView: View {
     private func play(meta: Meta) {
         library.cache(meta.preview())
         if meta.type == .series {
-            guard let next = model.nextUpEpisode(
-                library: library,
-                threshold: settings.watchedThreshold,
-                fromFurthest: settings.layout.nextUpFromFurthestEpisode,
-                includeUnaired: settings.layout.showUnairedNextUp
-            )
-            else { return }
-            playEpisode(next)
+            guard let chosen = playTarget(meta) else { return }
+            playEpisode(chosen)
         } else {
             router.openStreams(StreamRequest(
                 videoId: meta.id,
