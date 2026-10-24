@@ -1247,3 +1247,19 @@
 "settings.poster.on" = "Activé";
 "settings.layout.custom_poster" = "Illustration des affiches";
 "settings.layout.custom_poster_sub" = "Récupérer les affiches depuis votre propre URL plutôt que depuis l’extension";
+
+// 1.0.37 additive episode shuffle and resume UI strings
+"card.remaining_minutes" = "%@ min restantes";
+"detail.play_episode" = "Lire %@";
+"detail.shuffle" = "Aléatoire";
+"detail.shuffle_play" = "Aléatoire %@";
+"detail.shuffle_enabled" = "Épisodes aléatoires";
+"detail.shuffle_include_watched" = "Inclure les épisodes vus";
+"detail.shuffle_another" = "Un autre épisode";
+"detail.shuffle_exhausted" = "Plus d'épisode";
+"detail.shuffle_off_hint" = "Lire suit le prochain épisode non vu";
+"detail.shuffle_exhausted_hint" = "Plus rien à proposer — incluez les épisodes vus pour continuer";
+"detail.shuffle_offering" = "Au programme : %@";
+"settings.layout.random_episode" = "Épisodes aléatoires";
+"settings.layout.random_episode_enabled" = "Activer les épisodes aléatoires";
+"settings.layout.random_episode_hint" = "Afficher un bouton Aléatoire sur les fiches des séries";
