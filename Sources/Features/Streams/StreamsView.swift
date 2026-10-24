@@ -841,6 +841,14 @@ struct StreamsView: View {
         guard case .success(let url) = result else { return }
 
         let playback = makePlaybackRequest(stream: stream, url: url)
+        // A successful stream selection is the last reliable playback
+        // event when handing off to the standalone native Apple TV player:
+        // Nuvio cannot observe that external player's watch progress.
+        library.rememberPlayedSeason(
+            contentId: request.contentId,
+            contentType: request.contentType,
+            season: request.season
+        )
         let installed = ExternalPlayerLauncher.installed
 
         // Where the stream opens: internally, in a chosen external app, or ask each time.
