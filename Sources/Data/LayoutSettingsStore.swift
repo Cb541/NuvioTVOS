@@ -8,6 +8,12 @@ import Observation
 final class LayoutSettingsStore: PreferenceStore {
     init() { super.init(namespace: "layout") }
 
+    /// Opt-in series shuffle. Keeps every existing custom layout setting.
+    var randomEpisodeEnabled: Bool {
+        get { bool("random_episode_enabled", default: false) }
+        set { setBool("random_episode_enabled", newValue) }
+    }
+
     // MARK: - Layout choice
 
     /// `episode_options_overlay_style`: what sits behind the episode options dialog.
