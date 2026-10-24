@@ -178,6 +178,7 @@ targets:
           - nplayer
           - senplayer
           - nativeplayer
+          - nuvio-player
           - outplayer
         CFBundleURLTypes:
           - CFBundleTypeRole: Viewer
