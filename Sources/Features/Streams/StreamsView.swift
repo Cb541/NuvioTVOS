@@ -853,7 +853,11 @@ struct StreamsView: View {
             if let preferred, installed.contains(preferred) {
                 ExternalPlayerLauncher.open(
                     preferred, stream: url, title: request.title,
-                    subtitleURL: forwardedSubtitleURL
+                    subtitleURL: forwardedSubtitleURL,
+                    contentId: request.contentId,
+                    videoId: request.videoId,
+                    artworkURL: request.backdrop ?? request.poster,
+                    resumeSeconds: library.progress(forVideoId: request.videoId)?.positionSeconds
                 )
             } else if !installed.isEmpty {
                 // Set to external but no usable choice recorded — ask rather than guess.
@@ -1291,6 +1295,7 @@ struct ExternalPlayerPicker: View {
     @Environment(\.nuvioColors) private var colors
     @Environment(\.dismiss) private var dismiss
     @Environment(AppSettings.self) private var settings
+    @Environment(LibraryStore.self) private var library
 
     let playback: PlaybackRequest
     let onInternal: () -> Void
@@ -1338,7 +1343,11 @@ struct ExternalPlayerPicker: View {
                                     player,
                                     stream: playback.streamURL,
                                     title: playback.title,
-                                    subtitleURL: forwardsSubtitles ? playback.subtitles.first?.url : nil
+                                    subtitleURL: forwardsSubtitles ? playback.subtitles.first?.url : nil,
+                                    contentId: playback.contentId,
+                                    videoId: playback.videoId,
+                                    artworkURL: playback.backdrop ?? playback.poster,
+                                    resumeSeconds: library.progress(forVideoId: playback.videoId)?.positionSeconds
                                 )
                                 dismiss()
                             }
