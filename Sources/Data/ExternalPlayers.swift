@@ -16,6 +16,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     case nplayer
     case senplayer
     case nativePlayer = "nativeplayer"
+    case nuvioNative = "nuvio-native"
     case outplayer
 
     var id: String { rawValue }
@@ -27,6 +28,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nPlayer"
         case .senplayer: return "SenPlayer"
         case .nativePlayer: return "Native Player"
+        case .nuvioNative: return "Nuvio Player (Native)"
         case .outplayer: return "Outplayer"
         }
     }
@@ -38,6 +40,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "Hardware-accelerated, wide format support"
         case .senplayer: return "Dolby Vision and wide-format external playback"
         case .nativePlayer: return "Native tvOS playback with TrueHD Atmos, DTS:X and Dolby Vision"
+        case .nuvioNative: return "Your custom external Apple TV player with recent history and resume"
         case .outplayer: return "Lightweight MKV-capable player"
         }
     }
@@ -50,6 +53,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
         case .nplayer: return "nplayer"
         case .senplayer: return "senplayer"
         case .nativePlayer: return "nativeplayer"
+        case .nuvioNative: return "nuvio-player"
         case .outplayer: return "outplayer"
         }
     }
@@ -58,7 +62,7 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     /// take a bare stream URL and nothing else, so a track cannot travel with the hand-off.
     var acceptsSubtitleURL: Bool {
         switch self {
-        case .infuse, .vlc, .nativePlayer: return true
+        case .infuse, .vlc, .nativePlayer, .nuvioNative: return true
         case .nplayer, .senplayer, .outplayer: return false
         }
     }
@@ -69,7 +73,9 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
     /// `subtitleURL` is the addon track the viewer had selected, forwarded when
     /// `external_player_forward_subtitles` is on. Without it the hand-off silently drops the
     /// subtitles — the external player only sees the video URL and has no idea a track was chosen.
-    func playbackURL(for stream: String, title: String?, subtitleURL: String? = nil) -> URL? {
+    func playbackURL(for stream: String, title: String?, subtitleURL: String? = nil,
+                     contentId: String? = nil, videoId: String? = nil,
+                     artworkURL: String? = nil, resumeSeconds: Double? = nil) -> URL? {
         guard let encoded = stream.addingPercentEncoding(
             withAllowedCharacters: .externalPlayerArgument
         ) else { return nil }
@@ -109,6 +115,21 @@ enum ExternalPlayer: String, CaseIterable, Identifiable, Codable, Sendable {
             }
             if let encodedSubtitle { string += "&sub=\(encodedSubtitle)" }
             return URL(string: string)
+        case .nuvioNative:
+            var link = URLComponents()
+            link.scheme = "nuvio-player"
+            link.host = "stream"
+            var items = [URLQueryItem(name: "url", value: stream)]
+            if let title { items.append(URLQueryItem(name: "title", value: title)) }
+            if let subtitleURL { items.append(URLQueryItem(name: "sub", value: subtitleURL)) }
+            if let contentId { items.append(URLQueryItem(name: "contentId", value: contentId)) }
+            if let videoId { items.append(URLQueryItem(name: "videoId", value: videoId)) }
+            if let artworkURL { items.append(URLQueryItem(name: "artwork", value: artworkURL)) }
+            if let resumeSeconds, resumeSeconds.isFinite, resumeSeconds > 0 {
+                items.append(URLQueryItem(name: "resume", value: String(resumeSeconds)))
+            }
+            link.queryItems = items
+            return link.url
         case .outplayer:
             return URL(string: "outplayer://\(stream)")
         }
@@ -150,9 +171,18 @@ enum ExternalPlayerLauncher {
         _ player: ExternalPlayer,
         stream: String,
         title: String?,
-        subtitleURL: String? = nil
+        subtitleURL: String? = nil,
+        contentId: String? = nil,
+        videoId: String? = nil,
+        artworkURL: String? = nil,
+        resumeSeconds: Double? = nil
     ) -> Bool {
-        guard let url = player.playbackURL(for: stream, title: title, subtitleURL: subtitleURL) else {
+        guard let url = player.playbackURL(for: stream, title: title,
+                                          subtitleURL: subtitleURL,
+                                          contentId: contentId,
+                                          videoId: videoId,
+                                          artworkURL: artworkURL,
+                                          resumeSeconds: resumeSeconds) else {
             return false
         }
 
