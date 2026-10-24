@@ -24,6 +24,16 @@ struct WatchProgress: Codable, Hashable, Identifiable {
     func isFinished(threshold: Double) -> Bool { fraction >= threshold }
 
     var remainingSeconds: Double { max(0, durationSeconds - positionSeconds) }
+
+    /// Shared translated label for the source picker and Continue Watching cards.
+    var remainingLabel: String {
+        let minutes = Int(remainingSeconds / 60)
+        guard minutes > 0 else {
+            return L10n.text("card.almost_done", fallback: "Almost done")
+        }
+        return L10n.format("card.remaining_minutes",
+                           fallback: "%@ min left", "\(minutes)")
+    }
 }
 
 /// An entry the user explicitly saved to their library.
